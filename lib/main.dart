@@ -5,6 +5,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'core/config/env_config.dart';
 import 'core/constants/app_constants.dart';
 import 'core/di/injection.dart';
@@ -33,6 +34,9 @@ Future<void> main() async {
   await Hive.initFlutter();
   await Hive.openBox(AppConstants.boxSettings);
   await Hive.openBox(AppConstants.boxOfflineQueue);
+
+  // Load .env
+  await dotenv.load(fileName: '.env');
 
   // Supabase
   await Supabase.initialize(

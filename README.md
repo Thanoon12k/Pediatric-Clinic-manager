@@ -1,131 +1,135 @@
-# عيادتي — Pediatric Clinic Manager
+# عيادتي – Pediatric Clinic Manager
 
-**نظام إدارة عيادة طبيب الأطفال المتكامل**  
-A full-featured Flutter + Supabase pediatric clinic management system supporting Arabic & English.
+<div align="center">
+  <img src="assets/images/logo.png" alt="عيادتي Logo" width="120" />
+  <h3>نظام إدارة عيادة الأطفال</h3>
+  <p>A full-featured Flutter + Supabase pediatric clinic management system</p>
 
----
-
-## 🚀 Features
-
-| Module | Features |
-|--------|----------|
-| 🔐 Auth | Login, Register, Forgot Password, Role-based routing (Admin / Doctor / Patient) |
-| 👨‍⚕️ Doctor | Dashboard, patient list with search, appointments calendar, quick actions |
-| 👶 Patient | Profile, add/edit form, age display, guardian info, treatment status, permissions |
-| 📅 Appointments | Calendar view, time slot generation, confirm/cancel/complete, patient booking |
-| 🔬 Examinations | Vision, hearing, growth, blood, general exams with type-specific fields |
-| 💉 Vaccinations | Add vaccines, track given/due/overdue, common vaccine library |
-| 📊 Charts | Weight & height growth curves using fl_chart |
-| 💊 Medications | Doctor's drug library grouped by form, add prescriptions per patient |
-| 💬 Messages | Real-time patient ↔ doctor chat (Supabase Realtime) |
-| 📄 PDF Reports | Generate & print/share Arabic patient reports |
-| 🛡️ Safety Tips | 10 expandable pediatric safety topics |
-| ⚙️ Settings | Dark mode, Arabic/English toggle, profile, logout |
-| 🏥 Admin | Manage doctors — activate, deactivate, delete |
-| 🔁 Failed Ops | Offline queue with retry/cancel |
+  ![Flutter](https://img.shields.io/badge/Flutter-3.x-blue?logo=flutter)
+  ![Supabase](https://img.shields.io/badge/Supabase-Backend-green?logo=supabase)
+  ![Dart](https://img.shields.io/badge/Dart-3.x-blue?logo=dart)
+  ![License](https://img.shields.io/badge/License-MIT-yellow)
+</div>
 
 ---
 
-## 🛠️ Tech Stack
+## ✨ Features
 
-- **Frontend**: Flutter 3.35+ (Android + Web)
-- **Backend**: Supabase (Auth, PostgreSQL, Realtime, Storage)
-- **State**: BLoC / Cubit
-- **Navigation**: GoRouter
-- **DI**: GetIt
-- **Storage**: Hive (local), Supabase Storage (media)
-- **PDF**: `pdf` + `printing`
-- **Charts**: `fl_chart`
-- **Fonts**: Cairo (Arabic support)
+| Module | Description |
+|--------|-------------|
+| 🔐 Auth | Role-based login (Admin / Doctor / Patient) |
+| 👶 Patients | Full patient profiles, media attachments |
+| 📅 Appointments | Calendar, booking, status management |
+| 💊 Medications | Prescriptions per visit |
+| 🩺 Examinations | Record keeping with growth charts |
+| 💉 Vaccinations | Schedule tracking (given / due / overdue) |
+| 💬 Chat | Real-time messaging (Supabase Realtime) |
+| 📄 PDF Reports | Arabic PDF generation |
+| 🛡️ Admin Panel | Manage doctors, toggle status |
+| ⚙️ Settings | Dark mode, language (AR/EN), logout |
 
 ---
 
-## 📁 Project Structure
+## 🏗️ Architecture
 
 ```
 lib/
-├── core/
-│   ├── config/        (env_config.dart)
-│   ├── constants/     (app_constants.dart)
-│   ├── di/            (injection.dart)
-│   ├── router/        (app_router.dart)
-│   └── theme/         (app_colors, app_text_styles, app_theme)
-├── data/
-│   ├── datasources/   (Supabase implementations)
-│   ├── models/        (UserModel, PatientModel, etc.)
-│   └── repositories/  (Implementations)
-├── domain/
-│   └── repositories/  (Abstract interfaces)
-├── l10n/
-│   ├── app_ar.arb
-│   └── app_en.arb
-├── presentation/
-│   ├── blocs/         (AuthBloc, PatientBloc, AppointmentBloc, …)
-│   ├── screens/       (All screens)
-│   └── widgets/       (Shared widgets)
+├── core/               # Constants, theme, router, config
+├── data/               # Models, datasources, repository implementations
+├── domain/             # Repository interfaces (abstract)
+├── presentation/       # Screens, BLoCs, widgets
 └── main.dart
+```
 
-supabase/
-└── migrations/
-    └── 001_initial_schema.sql
+**State Management:** BLoC pattern  
+**Navigation:** GoRouter with auth guards  
+**Backend:** Supabase (Auth, DB, Storage, Realtime)  
+**Local Storage:** Hive (settings), flutter_secure_storage  
 
-test/
-├── unit/
-│   ├── blocs/
-│   └── models/
+---
+
+## 🚀 Getting Started
+
+### 1. Prerequisites
+
+- Flutter SDK ≥ 3.19.0
+- Dart SDK ≥ 3.3.0
+- A [Supabase](https://supabase.com) account
+
+### 2. Clone & Install
+
+```bash
+git clone https://github.com/Thanoon12k/Pediatric-Clinic-manager.git
+cd "Pediatric Clinic manager"
+flutter pub get
+```
+
+### 3. Configure Supabase
+
+Open `lib/core/config/env_config.dart` and fill in your project values:
+
+```dart
+static const String supabaseUrl     = 'https://zmplunreqqmvqoyrrceq.supabase.co';
+static const String supabaseAnonKey = 'YOUR_ANON_KEY'; // from Supabase Dashboard → Settings → API
+```
+
+> **Where to find your anon key:**  
+> Supabase Dashboard → Your Project → Project Settings → API → **anon / public**
+
+### 4. Run Database Migration
+
+Go to your **Supabase SQL Editor** and run the migration file:
+
+```
+supabase/migrations/001_initial_schema.sql
+```
+
+This creates all tables: `profiles`, `patients`, `appointments`, `examinations`, `vaccinations`, `medications`, `messages`, `media_files`, `failed_operations`.
+
+### 5. Run the App
+
+```bash
+flutter run
 ```
 
 ---
 
-## ⚙️ Setup Guide
+## 👤 Default Roles
 
-### 1. Clone the repo
+| Role | Access |
+|------|--------|
+| `admin` | Manage doctors, full system access |
+| `doctor` | Own patients, appointments, full clinical features |
+| `patient` | View own profile, book appointments, chat |
 
-```bash
-git clone https://github.com/Thanoon12k/Pediatric-Clinic-manager.git
-cd Pediatric-Clinic-manager
-```
+---
 
-### 2. Create a Supabase project
+## 🗄️ Supabase Setup
 
-- Go to [supabase.com](https://supabase.com) → New Project
-- Copy your **Project URL** and **anon key**
-
-### 3. Run the SQL migration
-
-- In Supabase Dashboard → **SQL Editor**
-- Paste contents of `supabase/migrations/001_initial_schema.sql`
-- Click **Run**
-
-### 4. Create Storage Buckets
-
-In Supabase → Storage:
-- Create bucket: `patient-media` (private)
-- Create bucket: `avatars` (public)
-
-### 5. Configure environment
+**Project ref:** `zmplunreqqmvqoyrrceq`
 
 ```bash
-cp lib/core/config/env_config.dart.example lib/core/config/env_config.dart
+# Link local project to Supabase
+supabase login
+supabase link --project-ref zmplunreqqmvqoyrrceq
+
+# Push migrations
+supabase db push
 ```
 
-Edit `env_config.dart`:
-```dart
-static const String supabaseUrl  = 'https://YOUR_PROJECT.supabase.co';
-static const String supabaseAnonKey = 'YOUR_ANON_KEY';
-```
+### Storage Buckets Required
 
-### 6. Install dependencies
+Create these buckets in **Supabase Storage**:
+- `patient-media` — patient photos, audio, files (private, RLS enforced)
+
+---
+
+## 🔒 Environment Variables
+
+Copy `.env.example` to `.env` and fill in values. **Never commit `.env`.**
 
 ```bash
-flutter pub get
-```
-
-### 7. Run the app
-
-```bash
-flutter run -d chrome    # Web
-flutter run              # Android
+cp .env.example .env
 ```
 
 ---
@@ -133,72 +137,34 @@ flutter run              # Android
 ## 🧪 Running Tests
 
 ```bash
-# Generate mocks first
-flutter pub run build_runner build --delete-conflicting-outputs
-
-# Run all tests
 flutter test
 ```
 
----
-
-## 🔐 Security
-
-- All tables protected with **Row Level Security (RLS)**
-- Doctors only see their own patients
-- Patients only see their own records
-- Admin can manage all doctors
-- env_config.dart is in `.gitignore`
-- Service role key never exposed to client
-
----
-
-## 📱 Creating the First Admin
-
-After running migrations, set a user's role to `admin` directly in Supabase:
-
-```sql
-update public.profiles set role = 'admin' where id = 'YOUR_USER_UUID';
-```
-
-Then create a matching doctor record and set `is_active = true`.
-
----
-
-## 🌐 Localization
-
-The app defaults to **Arabic (RTL)**. Toggle to English in Settings.  
-Translation files: `lib/l10n/app_ar.arb` and `lib/l10n/app_en.arb`
+Tests use `mocktail` — no code generation required.
 
 ---
 
 ## 📦 Key Dependencies
 
 ```yaml
-supabase_flutter: ^2.x    # Backend
-flutter_bloc: ^9.x        # State management
-go_router: ^14.x          # Navigation
-get_it: ^8.x              # Dependency injection
-hive_flutter: ^1.x        # Local storage
-fl_chart: ^0.x            # Growth charts
-pdf + printing: ^x.x      # PDF reports
-table_calendar: ^3.x      # Appointment calendar
-flutter_animate: ^4.x     # Animations
-google_fonts: ^6.x        # Cairo font
+flutter_bloc: ^8.1.6      # State management
+go_router: ^14.6.2         # Navigation
+supabase_flutter: ^2.7.0   # Backend
+hive_flutter: ^1.1.0       # Local storage
+fl_chart: ^0.70.2          # Growth charts
+table_calendar: ^3.2.0     # Calendar
+flutter_animate: ^4.5.2    # Animations
+pdf + printing             # PDF reports
 ```
 
 ---
 
-## 🤝 Contributing
+## 📸 Screenshots
 
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/my-feature`
-3. Commit: `git commit -m 'Add my feature'`
-4. Push: `git push origin feature/my-feature`
-5. Open a Pull Request
+> Coming soon — run the app and take screenshots with `flutter screenshot`
 
 ---
 
-## 📄 License
+## 📝 License
 
-MIT License — free to use and modify.
+MIT © 2024 [Thanoon12k](https://github.com/Thanoon12k)

@@ -64,6 +64,7 @@ dependencies:
   open_filex: ^4.6.0
   timeago: ^3.7.0
   table_calendar: ^3.2.0
+  flutter_dotenv: ^5.2.1
 
 dev_dependencies:
   flutter_test:
@@ -81,6 +82,7 @@ flutter:
   generate: true
 
   assets:
+    - .env
     - assets/images/
     - assets/icons/
     - assets/animations/
