@@ -1,0 +1,19 @@
+// This file is intentionally NOT in .gitignore (it's a template).
+// Copy this file to env_config.dart and fill in your Supabase credentials.
+// The actual env_config.dart IS in .gitignore.
+
+class EnvConfig {
+  EnvConfig._();
+
+  // Replace with your actual Supabase project URL
+  static const String supabaseUrl = 'https://YOUR_PROJECT_REF.supabase.co';
+
+  // Replace with your actual Supabase anon key (safe for client)
+  static const String supabaseAnonKey = 'YOUR_ANON_KEY_HERE';
+
+  // App configuration
+  static const String appName = 'عيادتي';
+  static const String appNameEn = 'Yadati';
+  static const String appVersion = '1.0.0';
+  static const bool isProduction = false;
+}

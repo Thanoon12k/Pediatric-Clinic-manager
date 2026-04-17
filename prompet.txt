@@ -1,0 +1,19 @@
+read the images to get the app and create flutter app 
+usign supbaase as backend
+and make a full functional app with all the features and the images
+ready to deploy
+this is my github repo 
+https://github.com/Thanoon12k/Pediatric-Clinic-manager.git
+
+
+take consider these points must be included:
+- ask me if  you need any forther information
+- ready for production free from errors
+- media support
+
+- seprated tests folder to test all the app
+- security should be taken care
+- support arabic and english default is arabic
+- smart modern ui
+- can be scaled add more features in future
+- ready to push on github and gitignore file
