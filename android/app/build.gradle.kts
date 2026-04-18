@@ -9,7 +9,7 @@ plugins {
 }
 
 // Load key.properties for release signing
-val keyPropertiesFile = rootProject.file("app/key.properties")
+val keyPropertiesFile = rootProject.file("key.properties")
 val keyProperties = Properties()
 if (keyPropertiesFile.exists()) {
     keyProperties.load(FileInputStream(keyPropertiesFile))
