@@ -52,6 +52,7 @@ lib/core/config/supabase_config.dart
 **/GoogleService-Info.plist
 **/keystore.properties
 **/upload-keystore.jks
+**/key.properties
 
 # Test coverage
 coverage/
