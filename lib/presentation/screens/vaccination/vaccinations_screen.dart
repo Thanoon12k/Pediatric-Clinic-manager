@@ -1,32 +1,38 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../data/models/vaccination_model.dart';
-import '../../blocs/vaccination/vaccination_bloc.dart';
+import '../../providers/vaccination/vaccination_provider.dart';
 import '../../widgets/app_snackbar.dart';
 
-class VaccinationsScreen extends StatelessWidget {
+class VaccinationsScreen extends ConsumerWidget {
   final String patientId;
   const VaccinationsScreen({super.key, required this.patientId});
 
   @override
-  Widget build(BuildContext context) {
-    context.read<VaccinationBloc>().add(LoadVaccinations(patientId));
+  Widget build(BuildContext context, WidgetRef ref) {
+    Future.microtask(() {
+      ref.read(vaccinationProvider.notifier).loadVaccinations(patientId);
+    });
+
+    ref.listen<VaccinationState>(vaccinationProvider, (previous, next) {
+      if (next is VaccinationSuccess) {
+        AppSnackbar.success(context, next.message);
+        ref.read(vaccinationProvider.notifier).loadVaccinations(patientId);
+      }
+      if (next is VaccinationError) AppSnackbar.error(context, next.message);
+    });
+
+    final state = ref.watch(vaccinationProvider);
+
     return Scaffold(
       appBar: AppBar(title: const Text('التحصينات')),
-      body: BlocConsumer<VaccinationBloc, VaccinationState>(
-        listener: (ctx, state) {
-          if (state is VaccinationSuccess) {
-            AppSnackbar.success(ctx, state.message);
-            ctx.read<VaccinationBloc>().add(LoadVaccinations(patientId));
-          }
-          if (state is VaccinationError) AppSnackbar.error(ctx, state.message);
-        },
-        builder: (ctx, state) {
+      body: Builder(
+        builder: (ctx) {
           if (state is VaccinationLoading) return const Center(child: CircularProgressIndicator());
           if (state is VaccinationsLoaded && state.vaccinations.isEmpty) {
             return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
@@ -45,24 +51,24 @@ class VaccinationsScreen extends StatelessWidget {
               children: [
                 if (overdue.isNotEmpty) ...[
                   _SectionHeader(label: 'متأخر ⚠️', color: AppColors.error),
-                  ...overdue.map((v) => _VaccineCard(v: v, onDelete: () => ctx.read<VaccinationBloc>().add(DeleteVaccination(v.id)))),
+                  ...overdue.map((v) => _VaccineCard(v: v, onDelete: () => ref.read(vaccinationProvider.notifier).deleteVaccination(v.id))),
                   const SizedBox(height: 12),
                 ],
                 if (due.isNotEmpty) ...[
                   _SectionHeader(label: 'موعد مستحق', color: AppColors.warning),
                   ...due.map((v) => _VaccineCard(v: v, onMarkGiven: () {
-                    ctx.read<VaccinationBloc>().add(UpdateVaccination(VaccinationModel(
+                    ref.read(vaccinationProvider.notifier).updateVaccination(VaccinationModel(
                       id: v.id, patientId: v.patientId, doctorId: v.doctorId,
                       vaccineName: v.vaccineName, dateGiven: DateTime.now(),
                       status: VaccinationStatus.given, doseNumber: v.doseNumber,
                       createdAt: v.createdAt,
-                    )));
-                  }, onDelete: () => ctx.read<VaccinationBloc>().add(DeleteVaccination(v.id)))),
+                    ));
+                  }, onDelete: () => ref.read(vaccinationProvider.notifier).deleteVaccination(v.id))),
                   const SizedBox(height: 12),
                 ],
                 if (given.isNotEmpty) ...[
                   _SectionHeader(label: 'تم تطعيمه ✓', color: AppColors.success),
-                  ...given.map((v) => _VaccineCard(v: v, onDelete: () => ctx.read<VaccinationBloc>().add(DeleteVaccination(v.id)))),
+                  ...given.map((v) => _VaccineCard(v: v, onDelete: () => ref.read(vaccinationProvider.notifier).deleteVaccination(v.id))),
                 ],
               ],
             );
@@ -71,22 +77,19 @@ class VaccinationsScreen extends StatelessWidget {
         },
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showAddVaccineSheet(context, patientId),
+        onPressed: () => _showAddVaccineSheet(context, ref, patientId),
         icon: const Icon(Icons.add_rounded),
         label: const Text('إضافة تحصين'),
       ),
     );
   }
 
-  static void _showAddVaccineSheet(BuildContext ctx, String patientId) {
+  static void _showAddVaccineSheet(BuildContext ctx, WidgetRef ref, String patientId) {
     showModalBottomSheet(
       context: ctx,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (_) => BlocProvider.value(
-        value: ctx.read<VaccinationBloc>(),
-        child: _AddVaccineSheet(patientId: patientId),
-      ),
+      builder: (_) => _AddVaccineSheet(patientId: patientId),
     );
   }
 }
@@ -150,13 +153,13 @@ class _VaccineCard extends StatelessWidget {
   }
 }
 
-class _AddVaccineSheet extends StatefulWidget {
+class _AddVaccineSheet extends ConsumerStatefulWidget {
   final String patientId;
   const _AddVaccineSheet({required this.patientId});
-  @override State<_AddVaccineSheet> createState() => _AddVaccineSheetState();
+  @override ConsumerState<_AddVaccineSheet> createState() => _AddVaccineSheetState();
 }
 
-class _AddVaccineSheetState extends State<_AddVaccineSheet> {
+class _AddVaccineSheetState extends ConsumerState<_AddVaccineSheet> {
   final _nameCtrl = TextEditingController();
   final _doseCtrl = TextEditingController(text: '1');
   final _batchCtrl = TextEditingController();
@@ -199,7 +202,7 @@ class _AddVaccineSheetState extends State<_AddVaccineSheet> {
               onPressed: () {
                 if (_nameCtrl.text.trim().isEmpty) return;
                 final doctorId = Supabase.instance.client.auth.currentUser?.id ?? '';
-                context.read<VaccinationBloc>().add(AddVaccination(VaccinationModel(
+                ref.read(vaccinationProvider.notifier).addVaccination(VaccinationModel(
                   id: const Uuid().v4(),
                   patientId: widget.patientId,
                   doctorId: doctorId,
@@ -210,7 +213,7 @@ class _AddVaccineSheetState extends State<_AddVaccineSheet> {
                   doseNumber: int.tryParse(_doseCtrl.text) ?? 1,
                   batchNumber: _batchCtrl.text.trim().isEmpty ? null : _batchCtrl.text.trim(),
                   createdAt: DateTime.now(),
-                )));
+                ));
                 Navigator.pop(context);
               },
               child: const Text('إضافة التحصين'),

@@ -1,19 +1,19 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
-import '../../blocs/doctor/doctor_bloc.dart';
+import '../../providers/doctor/doctor_provider.dart';
 import '../../widgets/app_snackbar.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../data/models/doctor_model.dart';
 import 'package:uuid/uuid.dart';
 
-class DoctorProfileScreen extends StatefulWidget {
+class DoctorProfileScreen extends ConsumerStatefulWidget {
   const DoctorProfileScreen({super.key});
-  @override State<DoctorProfileScreen> createState() => _DoctorProfileScreenState();
+  @override ConsumerState<DoctorProfileScreen> createState() => _DoctorProfileScreenState();
 }
 
-class _DoctorProfileScreenState extends State<DoctorProfileScreen> {
+class _DoctorProfileScreenState extends ConsumerState<DoctorProfileScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameCtrl = TextEditingController();
   final _specialtyCtrl = TextEditingController();
@@ -25,8 +25,10 @@ class _DoctorProfileScreenState extends State<DoctorProfileScreen> {
   @override
   void initState() {
     super.initState();
-    final userId = Supabase.instance.client.auth.currentUser?.id;
-    if (userId != null) context.read<DoctorBloc>().add(LoadDoctorByUserId(userId));
+    Future.microtask(() {
+      final userId = Supabase.instance.client.auth.currentUser?.id;
+      if (userId != null) ref.read(doctorProvider.notifier).loadDoctorByUserId(userId);
+    });
   }
 
   void _populate(DoctorModel doctor) {
@@ -40,72 +42,73 @@ class _DoctorProfileScreenState extends State<DoctorProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocConsumer<DoctorBloc, DoctorState>(
-      listener: (context, state) {
-        if (state is DoctorProfileLoaded && state.doctor != null) _populate(state.doctor!);
-        if (state is DoctorSuccess) AppSnackbar.success(context, state.message);
-        if (state is DoctorError) AppSnackbar.error(context, state.message);
-      },
-      builder: (context, state) => Scaffold(
-        appBar: AppBar(
-          title: const Text('الملف الشخصي - الطبيب'),
-          actions: [
-            TextButton(
-              onPressed: state is DoctorLoading ? null : _save,
-              child: const Text('حفظ', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-            ),
-          ],
-        ),
-        body: Form(
-          key: _formKey,
-          child: ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              Center(
-                child: Stack(
-                  children: [
-                    CircleAvatar(
-                      radius: 50,
-                      backgroundColor: AppColors.primaryContainer,
-                      child: const Icon(Icons.person_rounded, size: 60, color: AppColors.primary),
-                    ),
-                    Positioned(
-                      bottom: 0, right: 0,
-                      child: CircleAvatar(
-                        radius: 16,
-                        backgroundColor: AppColors.primary,
-                        child: const Icon(Icons.camera_alt_rounded, size: 16, color: Colors.white),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
-              _field('اسم الطبيب *', _nameCtrl, Icons.person_outline, required: true),
-              const SizedBox(height: 12),
-              _field('التخصص', _specialtyCtrl, Icons.medical_services_outlined),
-              const SizedBox(height: 12),
-              _field('رقم الهاتف', _phoneCtrl, Icons.phone_outlined, type: TextInputType.phone),
-              const SizedBox(height: 12),
-              _field('رقم الترخيص', _licenseCtrl, Icons.badge_outlined),
-              const SizedBox(height: 20),
-              Text('أيام الدوام', style: AppTextStyles.titleSmall),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
+    final state = ref.watch(doctorProvider);
+
+    ref.listen<DoctorState>(doctorProvider, (previous, next) {
+      if (next is DoctorProfileLoaded && next.doctor != null) _populate(next.doctor!);
+      if (next is DoctorSuccess) AppSnackbar.success(context, next.message);
+      if (next is DoctorError) AppSnackbar.error(context, next.message);
+    });
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('الملف الشخصي - الطبيب'),
+        actions: [
+          TextButton(
+            onPressed: state is DoctorLoading ? null : _save,
+            child: const Text('حفظ', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+      body: Form(
+        key: _formKey,
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            Center(
+              child: Stack(
                 children: [
-                  _DayChip(day: 1, label: 'الإثنين', selected: _availableDays.contains(1), onTap: () => _toggleDay(1)),
-                  _DayChip(day: 2, label: 'الثلاثاء', selected: _availableDays.contains(2), onTap: () => _toggleDay(2)),
-                  _DayChip(day: 3, label: 'الأربعاء', selected: _availableDays.contains(3), onTap: () => _toggleDay(3)),
-                  _DayChip(day: 4, label: 'الخميس', selected: _availableDays.contains(4), onTap: () => _toggleDay(4)),
-                  _DayChip(day: 5, label: 'الجمعة', selected: _availableDays.contains(5), onTap: () => _toggleDay(5)),
-                  _DayChip(day: 6, label: 'السبت', selected: _availableDays.contains(6), onTap: () => _toggleDay(6)),
-                  _DayChip(day: 7, label: 'الأحد', selected: _availableDays.contains(7), onTap: () => _toggleDay(7)),
+                  CircleAvatar(
+                    radius: 50,
+                    backgroundColor: AppColors.primaryContainer,
+                    child: const Icon(Icons.person_rounded, size: 60, color: AppColors.primary),
+                  ),
+                  Positioned(
+                    bottom: 0, right: 0,
+                    child: CircleAvatar(
+                      radius: 16,
+                      backgroundColor: AppColors.primary,
+                      child: const Icon(Icons.camera_alt_rounded, size: 16, color: Colors.white),
+                    ),
+                  ),
                 ],
               ),
-              const SizedBox(height: 32),
-            ],
-          ),
+            ),
+            const SizedBox(height: 24),
+            _field('اسم الطبيب *', _nameCtrl, Icons.person_outline, required: true),
+            const SizedBox(height: 12),
+            _field('التخصص', _specialtyCtrl, Icons.medical_services_outlined),
+            const SizedBox(height: 12),
+            _field('رقم الهاتف', _phoneCtrl, Icons.phone_outlined, type: TextInputType.phone),
+            const SizedBox(height: 12),
+            _field('رقم الترخيص', _licenseCtrl, Icons.badge_outlined),
+            const SizedBox(height: 20),
+            Text('أيام الدوام', style: AppTextStyles.titleSmall),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              children: [
+                _DayChip(day: 1, label: 'الإثنين', selected: _availableDays.contains(1), onTap: () => _toggleDay(1)),
+                _DayChip(day: 2, label: 'الثلاثاء', selected: _availableDays.contains(2), onTap: () => _toggleDay(2)),
+                _DayChip(day: 3, label: 'الأربعاء', selected: _availableDays.contains(3), onTap: () => _toggleDay(3)),
+                _DayChip(day: 4, label: 'الخميس', selected: _availableDays.contains(4), onTap: () => _toggleDay(4)),
+                _DayChip(day: 5, label: 'الجمعة', selected: _availableDays.contains(5), onTap: () => _toggleDay(5)),
+                _DayChip(day: 6, label: 'السبت', selected: _availableDays.contains(6), onTap: () => _toggleDay(6)),
+                _DayChip(day: 7, label: 'الأحد', selected: _availableDays.contains(7), onTap: () => _toggleDay(7)),
+              ],
+            ),
+            const SizedBox(height: 32),
+          ],
         ),
       ),
     );
@@ -132,8 +135,8 @@ class _DoctorProfileScreenState extends State<DoctorProfileScreen> {
       availableDays: _availableDays,
       createdAt: _existing?.createdAt ?? DateTime.now(),
     );
-    if (_existing != null) { context.read<DoctorBloc>().add(UpdateDoctor(doctor)); }
-    else { context.read<DoctorBloc>().add(CreateDoctor(doctor)); }
+    if (_existing != null) { ref.read(doctorProvider.notifier).updateDoctor(doctor); }
+    else { ref.read(doctorProvider.notifier).createDoctor(doctor); }
   }
 
   Widget _field(String label, TextEditingController ctrl, IconData icon, {

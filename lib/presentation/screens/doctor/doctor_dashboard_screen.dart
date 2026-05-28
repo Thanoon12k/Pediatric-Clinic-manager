@@ -1,24 +1,25 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../data/models/patient_model.dart';
 import '../../../data/models/appointment_model.dart';
-import '../../blocs/auth/auth_bloc.dart';
-import '../../blocs/patient/patient_bloc.dart';
-import '../../blocs/appointment/appointment_bloc.dart';
-import '../../blocs/doctor/doctor_bloc.dart';
+import '../../providers/auth/auth_provider.dart';
+import '../../providers/patient/patient_provider.dart';
+import '../../providers/appointment/appointment_provider.dart';
+import '../../providers/doctor/doctor_provider.dart';
 import '../../widgets/stat_card.dart';
 import '../../widgets/patient_list_tile.dart';
 
-class DoctorDashboardScreen extends StatefulWidget {
+class DoctorDashboardScreen extends ConsumerStatefulWidget {
   const DoctorDashboardScreen({super.key});
-  @override State<DoctorDashboardScreen> createState() => _DoctorDashboardScreenState();
+  @override ConsumerState<DoctorDashboardScreen> createState() => _DoctorDashboardScreenState();
 }
 
-class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
+class _DoctorDashboardScreenState extends ConsumerState<DoctorDashboardScreen> {
   int _selectedIndex = 0;
   String? _doctorId;
   String _doctorName = '';
@@ -26,46 +27,42 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
   @override
   void initState() {
     super.initState();
-    context.read<DoctorBloc>().add(LoadDoctors());
+    Future.microtask(() {
+      ref.read(doctorProvider.notifier).loadDoctors();
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    return MultiBlocListener(
-      listeners: [
-        BlocListener<AuthBloc, AuthBlocState>(
-          listener: (context, state) {
-            if (state is AuthUnauthenticated) context.go(AppConstants.routeWelcome);
-          },
-        ),
-        BlocListener<DoctorBloc, DoctorState>(
-          listener: (context, state) {
-            if (state is DoctorProfileLoaded && state.doctor != null) {
-              setState(() {
-                _doctorId = state.doctor!.id;
-                _doctorName = state.doctor!.fullName;
-              });
-              context.read<PatientBloc>().add(LoadPatients(doctorId: state.doctor!.id));
-              context.read<AppointmentBloc>().add(LoadAppointments(
-                doctorId: state.doctor!.id,
-                date: DateTime.now(),
-              ));
-            }
-          },
-        ),
-      ],
-      child: Scaffold(
-        backgroundColor: AppColors.backgroundLight,
-        body: _buildCurrentPage(),
-        bottomNavigationBar: _buildBottomNav(),
-        floatingActionButton: _selectedIndex == 1
-            ? FloatingActionButton.extended(
-                onPressed: () => context.go('/doctor/patients/add'),
-                icon: const Icon(Icons.person_add_rounded),
-                label: const Text('إضافة مريض'),
-              )
-            : null,
-      ),
+    ref.listen<AuthBlocState>(authProvider, (previous, next) {
+      if (next is AuthUnauthenticated) context.go(AppConstants.routeWelcome);
+    });
+
+    ref.listen<DoctorState>(doctorProvider, (previous, next) {
+      if (next is DoctorProfileLoaded && next.doctor != null) {
+        setState(() {
+          _doctorId = next.doctor!.id;
+          _doctorName = next.doctor!.fullName;
+        });
+        ref.read(patientProvider.notifier).loadPatients(doctorId: next.doctor!.id);
+        ref.read(appointmentProvider.notifier).loadAppointments(
+          doctorId: next.doctor!.id,
+          date: DateTime.now(),
+        );
+      }
+    });
+
+    return Scaffold(
+      backgroundColor: AppColors.backgroundLight,
+      body: _buildCurrentPage(),
+      bottomNavigationBar: _buildBottomNav(),
+      floatingActionButton: _selectedIndex == 1
+          ? FloatingActionButton.extended(
+              onPressed: () => context.go('/doctor/patients/add'),
+              icon: const Icon(Icons.person_add_rounded),
+              label: const Text('إضافة مريض'),
+            )
+          : null,
     );
   }
 
@@ -80,6 +77,9 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
   }
 
   Widget _buildHomePage() {
+    final patientState = ref.watch(patientProvider);
+    final apptState = ref.watch(appointmentProvider);
+
     return CustomScrollView(
       slivers: [
         SliverAppBar(
@@ -121,23 +121,19 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
         SliverPadding(
           padding: const EdgeInsets.all(16),
           sliver: SliverList(delegate: SliverChildListDelegate([
-            BlocBuilder<PatientBloc, PatientState>(
-              builder: (context, patientState) {
+            Builder(
+              builder: (context) {
                 final patientCount = patientState is PatientsLoaded ? patientState.patients.length : 0;
                 final recovered = patientState is PatientsLoaded
                     ? patientState.patients.where((p) => p.treatmentStatus == TreatmentStatus.recovered).length : 0;
-                return BlocBuilder<AppointmentBloc, AppointmentState>(
-                  builder: (context, apptState) {
-                    final todayCount = apptState is AppointmentsLoaded ? apptState.appointments.length : 0;
-                    return Row(children: [
-                      Expanded(child: StatCard(label: 'مواعيد اليوم', value: '$todayCount', icon: Icons.calendar_today_rounded, color: AppColors.primary)),
-                      const SizedBox(width: 12),
-                      Expanded(child: StatCard(label: 'إجمالي المرضى', value: '$patientCount', icon: Icons.people_rounded, color: AppColors.secondary)),
-                      const SizedBox(width: 12),
-                      Expanded(child: StatCard(label: 'تعافوا', value: '$recovered', icon: Icons.favorite_rounded, color: AppColors.accent)),
-                    ]);
-                  },
-                );
+                final todayCount = apptState is AppointmentsLoaded ? apptState.appointments.length : 0;
+                return Row(children: [
+                  Expanded(child: StatCard(label: 'مواعيد اليوم', value: '$todayCount', icon: Icons.calendar_today_rounded, color: AppColors.primary)),
+                  const SizedBox(width: 12),
+                  Expanded(child: StatCard(label: 'إجمالي المرضى', value: '$patientCount', icon: Icons.people_rounded, color: AppColors.secondary)),
+                  const SizedBox(width: 12),
+                  Expanded(child: StatCard(label: 'تعافوا', value: '$recovered', icon: Icons.favorite_rounded, color: AppColors.accent)),
+                ]);
               },
             ),
             const SizedBox(height: 24),
@@ -164,14 +160,14 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
             const SizedBox(height: 24),
             Text('مواعيد اليوم', style: AppTextStyles.titleMedium),
             const SizedBox(height: 12),
-            BlocBuilder<AppointmentBloc, AppointmentState>(
-              builder: (context, state) {
-                if (state is AppointmentLoading) return const Center(child: CircularProgressIndicator());
-                if (state is AppointmentsLoaded && state.appointments.isEmpty) {
+            Builder(
+              builder: (context) {
+                if (apptState is AppointmentLoading) return const Center(child: CircularProgressIndicator());
+                if (apptState is AppointmentsLoaded && apptState.appointments.isEmpty) {
                   return _EmptyState(message: 'لا توجد مواعيد اليوم', icon: Icons.event_available_rounded);
                 }
-                if (state is AppointmentsLoaded) {
-                  return Column(children: state.appointments.take(5).map((appt) => Card(
+                if (apptState is AppointmentsLoaded) {
+                  return Column(children: apptState.appointments.take(5).map((appt) => Card(
                     margin: const EdgeInsets.only(bottom: 8),
                     child: ListTile(
                       leading: CircleAvatar(backgroundColor: _apptColor(appt.status).withValues(alpha: 0.1),
@@ -194,6 +190,8 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
   }
 
   Widget _buildPatientsPage() {
+    final patientState = ref.watch(patientProvider);
+
     return Column(children: [
       Container(
         color: AppColors.primary,
@@ -203,7 +201,7 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
           const SizedBox(height: 12),
           TextField(
             onChanged: (v) {
-              if (_doctorId != null) context.read<PatientBloc>().add(LoadPatients(doctorId: _doctorId!, search: v));
+              if (_doctorId != null) ref.read(patientProvider.notifier).loadPatients(doctorId: _doctorId!, search: v);
             },
             decoration: InputDecoration(
               hintText: 'البحث عن مريض...',
@@ -218,17 +216,17 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
         ]),
       ),
       Expanded(
-        child: BlocBuilder<PatientBloc, PatientState>(
-          builder: (context, state) {
-            if (state is PatientLoading) return const Center(child: CircularProgressIndicator());
-            if (state is PatientsLoaded && state.patients.isEmpty) return _EmptyState(message: 'لا يوجد مرضى', icon: Icons.people_outline_rounded);
-            if (state is PatientsLoaded) {
+        child: Builder(
+          builder: (context) {
+            if (patientState is PatientLoading) return const Center(child: CircularProgressIndicator());
+            if (patientState is PatientsLoaded && patientState.patients.isEmpty) return _EmptyState(message: 'لا يوجد مرضى', icon: Icons.people_outline_rounded);
+            if (patientState is PatientsLoaded) {
               return ListView.builder(
                 padding: const EdgeInsets.all(16),
-                itemCount: state.patients.length,
+                itemCount: patientState.patients.length,
                 itemBuilder: (context, i) => PatientListTile(
-                  patient: state.patients[i],
-                  onTap: () => context.go('/doctor/patients/${state.patients[i].id}'),
+                  patient: patientState.patients[i],
+                  onTap: () => context.go('/doctor/patients/${patientState.patients[i].id}'),
                 ),
               );
             }
@@ -240,6 +238,8 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
   }
 
   Widget _buildAppointmentsPage() {
+    final apptState = ref.watch(appointmentProvider);
+
     return Column(children: [
       Container(
         color: AppColors.primary,
@@ -247,16 +247,16 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
         child: Text('المواعيد', style: AppTextStyles.headlineSmall.copyWith(color: Colors.white)),
       ),
       Expanded(
-        child: BlocBuilder<AppointmentBloc, AppointmentState>(
-          builder: (context, state) {
-            if (state is AppointmentLoading) return const Center(child: CircularProgressIndicator());
-            if (state is AppointmentsLoaded && state.appointments.isEmpty) return _EmptyState(message: 'لا توجد مواعيد', icon: Icons.event_available_rounded);
-            if (state is AppointmentsLoaded) {
+        child: Builder(
+          builder: (context) {
+            if (apptState is AppointmentLoading) return const Center(child: CircularProgressIndicator());
+            if (apptState is AppointmentsLoaded && apptState.appointments.isEmpty) return _EmptyState(message: 'لا توجد مواعيد', icon: Icons.event_available_rounded);
+            if (apptState is AppointmentsLoaded) {
               return ListView.builder(
                 padding: const EdgeInsets.all(16),
-                itemCount: state.appointments.length,
+                itemCount: apptState.appointments.length,
                 itemBuilder: (context, i) {
-                  final appt = state.appointments[i];
+                  final appt = apptState.appointments[i];
                   return Card(
                     margin: const EdgeInsets.only(bottom: 12),
                     child: Padding(

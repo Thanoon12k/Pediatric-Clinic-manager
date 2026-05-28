@@ -1,23 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../data/models/appointment_model.dart';
-import '../../blocs/appointment/appointment_bloc.dart';
-import '../../blocs/doctor/doctor_bloc.dart';
+import '../../providers/appointment/appointment_provider.dart';
+import '../../providers/doctor/doctor_provider.dart';
 import '../../widgets/app_snackbar.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
-class AppointmentsScreen extends StatefulWidget {
+class AppointmentsScreen extends ConsumerStatefulWidget {
   const AppointmentsScreen({super.key});
-  @override State<AppointmentsScreen> createState() => _AppointmentsScreenState();
+  @override ConsumerState<AppointmentsScreen> createState() => _AppointmentsScreenState();
 }
 
-class _AppointmentsScreenState extends State<AppointmentsScreen> {
+class _AppointmentsScreenState extends ConsumerState<AppointmentsScreen> {
   DateTime _selectedDay = DateTime.now();
   DateTime _focusedDay = DateTime.now();
   String? _doctorId;
@@ -25,93 +25,96 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
   @override
   void initState() {
     super.initState();
-    _loadDoctor();
+    Future.microtask(() {
+      _loadDoctor();
+    });
   }
 
   void _loadDoctor() {
     final userId = Supabase.instance.client.auth.currentUser?.id;
-    if (userId != null) context.read<DoctorBloc>().add(LoadDoctorByUserId(userId));
+    if (userId != null) ref.read(doctorProvider.notifier).loadDoctorByUserId(userId);
   }
 
   @override
   Widget build(BuildContext context) {
-    return BlocListener<DoctorBloc, DoctorState>(
-      listener: (context, state) {
-        if (state is DoctorProfileLoaded && state.doctor != null) {
-          setState(() => _doctorId = state.doctor!.id);
-          context.read<AppointmentBloc>().add(LoadAppointments(doctorId: state.doctor!.id, date: _selectedDay));
-        }
-      },
-      child: Scaffold(
-        appBar: AppBar(title: const Text('المواعيد')),
-        body: Column(
-          children: [
-            // Calendar
-            Container(
-              color: Colors.white,
-              child: TableCalendar(
-                firstDay: DateTime.now().subtract(const Duration(days: 365)),
-                lastDay: DateTime.now().add(const Duration(days: 365)),
-                focusedDay: _focusedDay,
-                selectedDayPredicate: (d) => isSameDay(d, _selectedDay),
-                onDaySelected: (selected, focused) {
-                  setState(() { _selectedDay = selected; _focusedDay = focused; });
-                  if (_doctorId != null) {
-                    context.read<AppointmentBloc>().add(LoadAppointments(doctorId: _doctorId!, date: selected));
-                  }
-                },
-                calendarStyle: const CalendarStyle(
-                  selectedDecoration: BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
-                  todayDecoration: BoxDecoration(color: AppColors.primaryLight, shape: BoxShape.circle),
-                ),
-                headerStyle: HeaderStyle(formatButtonVisible: false, titleCentered: true,
-                    titleTextStyle: AppTextStyles.titleMedium),
-                locale: 'ar',
-              ),
-            ),
-            const Divider(height: 1),
+    ref.listen<DoctorState>(doctorProvider, (previous, next) {
+      if (next is DoctorProfileLoaded && next.doctor != null) {
+        setState(() => _doctorId = next.doctor!.id);
+        ref.read(appointmentProvider.notifier).loadAppointments(doctorId: next.doctor!.id, date: _selectedDay);
+      }
+    });
 
-            // Appointments list
-            Expanded(
-              child: BlocBuilder<AppointmentBloc, AppointmentState>(
-                builder: (context, state) {
-                  if (state is AppointmentLoading) return const Center(child: CircularProgressIndicator());
-                  if (state is AppointmentsLoaded && state.appointments.isEmpty) {
-                    return Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(Icons.event_available_rounded, size: 64, color: AppColors.textHint),
-                          const SizedBox(height: 16),
-                          Text('لا توجد مواعيد في هذا اليوم', style: AppTextStyles.bodyLarge.copyWith(color: AppColors.textHint)),
-                        ],
-                      ),
-                    );
-                  }
-                  if (state is AppointmentsLoaded) {
-                    return ListView.builder(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: state.appointments.length,
-                      itemBuilder: (context, i) {
-                        final appt = state.appointments[i];
-                        return _AppointmentCard(
-                          appointment: appt,
-                          onConfirm: () => context.read<AppointmentBloc>().add(
-                              UpdateAppointmentStatus(id: appt.id, status: AppointmentStatus.confirmed)),
-                          onCancel: () => context.read<AppointmentBloc>().add(
-                              UpdateAppointmentStatus(id: appt.id, status: AppointmentStatus.cancelled)),
-                          onComplete: () => context.read<AppointmentBloc>().add(
-                              UpdateAppointmentStatus(id: appt.id, status: AppointmentStatus.completed)),
-                        ).animate(delay: Duration(milliseconds: i * 60)).fadeIn().slideX(begin: 0.2);
-                      },
-                    );
-                  }
-                  return const SizedBox.shrink();
-                },
+    final state = ref.watch(appointmentProvider);
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('المواعيد')),
+      body: Column(
+        children: [
+          // Calendar
+          Container(
+            color: Colors.white,
+            child: TableCalendar(
+              firstDay: DateTime.now().subtract(const Duration(days: 365)),
+              lastDay: DateTime.now().add(const Duration(days: 365)),
+              focusedDay: _focusedDay,
+              selectedDayPredicate: (d) => isSameDay(d, _selectedDay),
+              onDaySelected: (selected, focused) {
+                setState(() { _selectedDay = selected; _focusedDay = focused; });
+                if (_doctorId != null) {
+                  ref.read(appointmentProvider.notifier).loadAppointments(doctorId: _doctorId!, date: selected);
+                }
+              },
+              calendarStyle: const CalendarStyle(
+                selectedDecoration: BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
+                todayDecoration: BoxDecoration(color: AppColors.primaryLight, shape: BoxShape.circle),
               ),
+              headerStyle: HeaderStyle(formatButtonVisible: false, titleCentered: true,
+                  titleTextStyle: AppTextStyles.titleMedium),
+              locale: 'ar',
             ),
-          ],
-        ),
+          ),
+          const Divider(height: 1),
+
+          // Appointments list
+          Expanded(
+            child: Builder(
+              builder: (context) {
+                if (state is AppointmentLoading) return const Center(child: CircularProgressIndicator());
+                if (state is AppointmentsLoaded && state.appointments.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.event_available_rounded, size: 64, color: AppColors.textHint),
+                        const SizedBox(height: 16),
+                        Text('لا توجد مواعيد في هذا اليوم', style: AppTextStyles.bodyLarge.copyWith(color: AppColors.textHint)),
+                      ],
+                    ),
+                  );
+                }
+                if (state is AppointmentsLoaded) {
+                  return ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: state.appointments.length,
+                    itemBuilder: (context, i) {
+                      final appt = state.appointments[i];
+                      return _AppointmentCard(
+                        appointment: appt,
+                        onConfirm: () => ref.read(appointmentProvider.notifier).updateAppointmentStatus(
+                            id: appt.id, status: AppointmentStatus.confirmed),
+                        onCancel: () => ref.read(appointmentProvider.notifier).updateAppointmentStatus(
+                            id: appt.id, status: AppointmentStatus.cancelled),
+                        onComplete: () => ref.read(appointmentProvider.notifier).updateAppointmentStatus(
+                            id: appt.id, status: AppointmentStatus.completed),
+                      ).animate(delay: Duration(milliseconds: i * 60)).fadeIn().slideX(begin: 0.2);
+                    },
+                  );
+                }
+                return const SizedBox.shrink();
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -207,12 +210,12 @@ class _AppointmentCard extends StatelessWidget {
 }
 
 // ─── Book Appointment Screen ─────────────────────────────────────────────────
-class BookAppointmentScreen extends StatefulWidget {
+class BookAppointmentScreen extends ConsumerStatefulWidget {
   const BookAppointmentScreen({super.key});
-  @override State<BookAppointmentScreen> createState() => _BookAppointmentScreenState();
+  @override ConsumerState<BookAppointmentScreen> createState() => _BookAppointmentScreenState();
 }
 
-class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
+class _BookAppointmentScreenState extends ConsumerState<BookAppointmentScreen> {
   DateTime _selectedDate = DateTime.now();
   String? _selectedTime;
   String? _doctorId;
@@ -221,114 +224,116 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
   @override
   void initState() {
     super.initState();
-    _loadDoctor();
+    Future.microtask(() {
+      _loadDoctor();
+    });
   }
 
   void _loadDoctor() {
     final userId = Supabase.instance.client.auth.currentUser?.id;
-    if (userId != null) context.read<DoctorBloc>().add(LoadDoctorByUserId(userId));
+    if (userId != null) ref.read(doctorProvider.notifier).loadDoctorByUserId(userId);
   }
 
   @override
   Widget build(BuildContext context) {
-    return BlocListener<DoctorBloc, DoctorState>(
-      listener: (context, state) {
-        if (state is DoctorProfileLoaded && state.doctor != null) {
-          setState(() => _doctorId = state.doctor!.id);
-          context.read<AppointmentBloc>().add(LoadAvailableSlots(doctorId: state.doctor!.id, date: _selectedDate));
-        }
-      },
-      child: Scaffold(
-        appBar: AppBar(title: const Text('حجز موعد')),
-        body: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            Text('اختر يوم الموعد', style: AppTextStyles.titleMedium),
-            const SizedBox(height: 12),
-            Container(
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.divider)),
-              child: TableCalendar(
-                firstDay: DateTime.now(),
-                lastDay: DateTime.now().add(const Duration(days: 90)),
-                focusedDay: _selectedDate,
-                selectedDayPredicate: (d) => isSameDay(d, _selectedDate),
-                onDaySelected: (selected, focused) {
-                  setState(() { _selectedDate = selected; _selectedTime = null; });
-                  if (_doctorId != null) {
-                    context.read<AppointmentBloc>().add(LoadAvailableSlots(doctorId: _doctorId!, date: selected));
-                  }
-                },
-                calendarStyle: const CalendarStyle(
-                  selectedDecoration: BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
-                  todayDecoration: BoxDecoration(color: AppColors.primaryLight, shape: BoxShape.circle),
-                ),
-                headerStyle: HeaderStyle(formatButtonVisible: false, titleCentered: true, titleTextStyle: AppTextStyles.titleMedium),
-                locale: 'ar',
-              ),
-            ),
-            const SizedBox(height: 24),
-            Text('اختر الوقت المتاح', style: AppTextStyles.titleMedium),
-            const SizedBox(height: 12),
-            BlocBuilder<AppointmentBloc, AppointmentState>(
-              builder: (context, state) {
-                if (state is AppointmentLoading) return const Center(child: CircularProgressIndicator());
-                if (state is SlotsLoaded && state.slots.isEmpty) {
-                  return const Center(child: Text('لا توجد أوقات متاحة في هذا اليوم'));
-                }
-                if (state is SlotsLoaded) {
-                  return Wrap(
-                    spacing: 8, runSpacing: 8,
-                    children: state.slots.map((slot) => ChoiceChip(
-                      label: Text(slot),
-                      selected: _selectedTime == slot,
-                      onSelected: (_) => setState(() => _selectedTime = slot),
-                      selectedColor: AppColors.primaryContainer,
-                    )).toList(),
-                  );
-                }
-                return const SizedBox.shrink();
-              },
-            ),
-            const SizedBox(height: 24),
-            Text('سبب الزيارة (اختياري)', style: AppTextStyles.titleMedium),
-            const SizedBox(height: 8),
-            TextFormField(
-              controller: _reasonCtrl,
-              maxLines: 3,
-              decoration: const InputDecoration(hintText: 'اذكر سبب الزيارة...', prefixIcon: Icon(Icons.notes_rounded)),
-            ),
-            const SizedBox(height: 24),
-            BlocConsumer<AppointmentBloc, AppointmentState>(
-              listener: (context, state) {
-                if (state is AppointmentSuccess) {
-                  AppSnackbar.success(context, state.message);
-                  context.pop();
-                } else if (state is AppointmentError) {
-                  AppSnackbar.error(context, state.message);
+    ref.listen<DoctorState>(doctorProvider, (previous, next) {
+      if (next is DoctorProfileLoaded && next.doctor != null) {
+        setState(() => _doctorId = next.doctor!.id);
+        ref.read(appointmentProvider.notifier).loadAvailableSlots(doctorId: next.doctor!.id, date: _selectedDate);
+      }
+    });
+
+    final state = ref.watch(appointmentProvider);
+
+    ref.listen<AppointmentState>(appointmentProvider, (previous, next) {
+      if (next is AppointmentSuccess) {
+        AppSnackbar.success(context, next.message);
+        context.pop();
+      } else if (next is AppointmentError) {
+        AppSnackbar.error(context, next.message);
+      }
+    });
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('حجز موعد')),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Text('اختر يوم الموعد', style: AppTextStyles.titleMedium),
+          const SizedBox(height: 12),
+          Container(
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.divider)),
+            child: TableCalendar(
+              firstDay: DateTime.now(),
+              lastDay: DateTime.now().add(const Duration(days: 90)),
+              focusedDay: _selectedDate,
+              selectedDayPredicate: (d) => isSameDay(d, _selectedDate),
+              onDaySelected: (selected, focused) {
+                setState(() { _selectedDate = selected; _selectedTime = null; });
+                if (_doctorId != null) {
+                  ref.read(appointmentProvider.notifier).loadAvailableSlots(doctorId: _doctorId!, date: selected);
                 }
               },
-              builder: (context, state) => ElevatedButton(
-                onPressed: (state is AppointmentLoading || _selectedTime == null) ? null : () {
-                  final userId = Supabase.instance.client.auth.currentUser?.id ?? '';
-                  context.read<AppointmentBloc>().add(BookAppointment(AppointmentModel(
-                    id: const Uuid().v4(),
-                    patientId: userId,
-                    doctorId: _doctorId!,
-                    patientName: Supabase.instance.client.auth.currentUser?.email ?? '',
-                    appointmentDate: _selectedDate,
-                    appointmentTime: _selectedTime!,
-                    reason: _reasonCtrl.text.trim().isEmpty ? null : _reasonCtrl.text.trim(),
-                    createdAt: DateTime.now(),
-                  )));
-                },
-                child: state is AppointmentLoading
-                    ? const SizedBox(height: 22, width: 22, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : Text(_selectedTime == null ? 'اختر وقتاً أولاً' : 'تأكيد الحجز ($_selectedTime)'),
+              calendarStyle: const CalendarStyle(
+                selectedDecoration: BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
+                todayDecoration: BoxDecoration(color: AppColors.primaryLight, shape: BoxShape.circle),
               ),
+              headerStyle: HeaderStyle(formatButtonVisible: false, titleCentered: true, titleTextStyle: AppTextStyles.titleMedium),
+              locale: 'ar',
             ),
-            const SizedBox(height: 32),
-          ],
-        ),
+          ),
+          const SizedBox(height: 24),
+          Text('اختر الوقت المتاح', style: AppTextStyles.titleMedium),
+          const SizedBox(height: 12),
+          Builder(
+            builder: (context) {
+              if (state is AppointmentLoading) return const Center(child: CircularProgressIndicator());
+              if (state is SlotsLoaded && state.slots.isEmpty) {
+                return const Center(child: Text('لا توجد أوقات متاحة في هذا اليوم'));
+              }
+              if (state is SlotsLoaded) {
+                return Wrap(
+                  spacing: 8, runSpacing: 8,
+                  children: state.slots.map((slot) => ChoiceChip(
+                    label: Text(slot),
+                    selected: _selectedTime == slot,
+                    onSelected: (_) => setState(() => _selectedTime = slot),
+                    selectedColor: AppColors.primaryContainer,
+                  )).toList(),
+                );
+              }
+              return const SizedBox.shrink();
+            },
+          ),
+          const SizedBox(height: 24),
+          Text('سبب الزيارة (اختياري)', style: AppTextStyles.titleMedium),
+          const SizedBox(height: 8),
+          TextFormField(
+            controller: _reasonCtrl,
+            maxLines: 3,
+            decoration: const InputDecoration(hintText: 'اذكر سبب الزيارة...', prefixIcon: Icon(Icons.notes_rounded)),
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton(
+            onPressed: (state is AppointmentLoading || _selectedTime == null) ? null : () {
+              final userId = Supabase.instance.client.auth.currentUser?.id ?? '';
+              ref.read(appointmentProvider.notifier).bookAppointment(AppointmentModel(
+                id: const Uuid().v4(),
+                patientId: userId,
+                doctorId: _doctorId!,
+                patientName: Supabase.instance.client.auth.currentUser?.email ?? '',
+                appointmentDate: _selectedDate,
+                appointmentTime: _selectedTime!,
+                reason: _reasonCtrl.text.trim().isEmpty ? null : _reasonCtrl.text.trim(),
+                createdAt: DateTime.now(),
+              ));
+            },
+            child: state is AppointmentLoading
+                ? const SizedBox(height: 22, width: 22, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                : Text(_selectedTime == null ? 'اختر وقتاً أولاً' : 'تأكيد الحجز ($_selectedTime)'),
+          ),
+          const SizedBox(height: 32),
+        ],
       ),
     );
   }

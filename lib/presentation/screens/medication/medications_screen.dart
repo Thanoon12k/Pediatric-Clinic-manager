@@ -1,110 +1,114 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../data/models/medication_model.dart';
-import '../../blocs/medication/medication_bloc.dart';
-import '../../blocs/doctor/doctor_bloc.dart';
+import '../../providers/medication/medication_provider.dart';
+import '../../providers/doctor/doctor_provider.dart';
 import '../../widgets/app_snackbar.dart';
 
-class MedicationsScreen extends StatefulWidget {
+class MedicationsScreen extends ConsumerStatefulWidget {
   const MedicationsScreen({super.key});
-  @override State<MedicationsScreen> createState() => _MedicationsScreenState();
+  @override ConsumerState<MedicationsScreen> createState() => _MedicationsScreenState();
 }
 
-class _MedicationsScreenState extends State<MedicationsScreen> {
+class _MedicationsScreenState extends ConsumerState<MedicationsScreen> {
   String? _doctorId;
   String _search = '';
 
   @override
   void initState() {
     super.initState();
-    final userId = Supabase.instance.client.auth.currentUser?.id;
-    if (userId != null) context.read<DoctorBloc>().add(LoadDoctorByUserId(userId));
+    Future.microtask(() {
+      final userId = Supabase.instance.client.auth.currentUser?.id;
+      if (userId != null) ref.read(doctorProvider.notifier).loadDoctorByUserId(userId);
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    return BlocListener<DoctorBloc, DoctorState>(
-      listener: (context, state) {
-        if (state is DoctorProfileLoaded && state.doctor != null) {
-          setState(() => _doctorId = state.doctor!.id);
-          context.read<MedicationBloc>().add(LoadMedications(state.doctor!.id));
-        }
-      },
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('قائمة الأدوية'),
-          bottom: PreferredSize(
-            preferredSize: const Size.fromHeight(56),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-              child: TextField(
-                onChanged: (v) => setState(() => _search = v.toLowerCase()),
-                decoration: InputDecoration(
-                  hintText: 'البحث عن دواء...',
-                  hintStyle: const TextStyle(color: Colors.white60),
-                  prefixIcon: const Icon(Icons.search_rounded, color: Colors.white70),
-                  filled: true,
-                  fillColor: Colors.white.withValues(alpha: 0.15),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                ),
-                style: const TextStyle(color: Colors.white),
+    ref.listen<DoctorState>(doctorProvider, (previous, next) {
+      if (next is DoctorProfileLoaded && next.doctor != null) {
+        setState(() => _doctorId = next.doctor!.id);
+        ref.read(medicationProvider.notifier).loadMedications(next.doctor!.id);
+      }
+    });
+
+    final state = ref.watch(medicationProvider);
+
+    ref.listen<MedicationState>(medicationProvider, (previous, next) {
+      if (next is MedicationSuccess) {
+        AppSnackbar.success(context, next.message);
+        if (_doctorId != null) ref.read(medicationProvider.notifier).loadMedications(_doctorId!);
+      }
+      if (next is MedicationError) AppSnackbar.error(context, next.message);
+    });
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('قائمة الأدوية'),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(56),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: TextField(
+              onChanged: (v) => setState(() => _search = v.toLowerCase()),
+              decoration: InputDecoration(
+                hintText: 'البحث عن دواء...',
+                hintStyle: const TextStyle(color: Colors.white60),
+                prefixIcon: const Icon(Icons.search_rounded, color: Colors.white70),
+                filled: true,
+                fillColor: Colors.white.withValues(alpha: 0.15),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               ),
+              style: const TextStyle(color: Colors.white),
             ),
           ),
         ),
-        body: BlocConsumer<MedicationBloc, MedicationState>(
-          listener: (context, state) {
-            if (state is MedicationSuccess) {
-              AppSnackbar.success(context, state.message);
-              if (_doctorId != null) context.read<MedicationBloc>().add(LoadMedications(_doctorId!));
+      ),
+      body: Builder(
+        builder: (context) {
+          if (state is MedicationLoading) return const Center(child: CircularProgressIndicator());
+          if (state is MedicationsLoaded) {
+            final meds = state.medications
+                .where((m) => _search.isEmpty || m.name.toLowerCase().contains(_search) || (m.genericName?.toLowerCase().contains(_search) ?? false))
+                .toList();
+            if (meds.isEmpty) {
+              return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                const Icon(Icons.medication_outlined, size: 80, color: AppColors.textHint),
+                const SizedBox(height: 16),
+                Text('لا توجد أدوية مسجلة', style: AppTextStyles.bodyLarge.copyWith(color: AppColors.textHint)),
+              ]));
             }
-            if (state is MedicationError) AppSnackbar.error(context, state.message);
-          },
-          builder: (context, state) {
-            if (state is MedicationLoading) return const Center(child: CircularProgressIndicator());
-            if (state is MedicationsLoaded) {
-              final meds = state.medications
-                  .where((m) => _search.isEmpty || m.name.toLowerCase().contains(_search) || (m.genericName?.toLowerCase().contains(_search) ?? false))
-                  .toList();
-              if (meds.isEmpty) {
-                return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  const Icon(Icons.medication_outlined, size: 80, color: AppColors.textHint),
-                  const SizedBox(height: 16),
-                  Text('لا توجد أدوية مسجلة', style: AppTextStyles.bodyLarge.copyWith(color: AppColors.textHint)),
-                ]));
-              }
-              // Group by form
-              final grouped = <String, List<MedicationModel>>{};
-              for (final m in meds) {
-                final key = m.form ?? 'أخرى';
-                grouped.putIfAbsent(key, () => []).add(m);
-              }
-              return ListView(
-                padding: const EdgeInsets.all(16),
-                children: grouped.entries.expand((entry) => [
-                  _FormHeader(label: _formLabel(entry.key)),
-                  ...entry.value.asMap().entries.map((e) => _MedicationCard(
-                    med: e.value,
-                    onDelete: () => context.read<MedicationBloc>().add(DeleteMedication(e.value.id)),
-                  ).animate(delay: Duration(milliseconds: e.key * 40)).fadeIn().slideX(begin: 0.2)),
-                  const SizedBox(height: 8),
-                ]).toList(),
-              );
+            // Group by form
+            final grouped = <String, List<MedicationModel>>{};
+            for (final m in meds) {
+              final key = m.form ?? 'أخرى';
+              grouped.putIfAbsent(key, () => []).add(m);
             }
-            return const SizedBox.shrink();
-          },
-        ),
-        floatingActionButton: FloatingActionButton.extended(
-          onPressed: () => _showAddMedicationSheet(context),
-          icon: const Icon(Icons.add_rounded),
-          label: const Text('إضافة دواء'),
-        ),
+            return ListView(
+              padding: const EdgeInsets.all(16),
+              children: grouped.entries.expand((entry) => [
+                _FormHeader(label: _formLabel(entry.key)),
+                ...entry.value.asMap().entries.map((e) => _MedicationCard(
+                  med: e.value,
+                  onDelete: () => ref.read(medicationProvider.notifier).deleteMedication(e.value.id),
+                ).animate(delay: Duration(milliseconds: e.key * 40)).fadeIn().slideX(begin: 0.2)),
+                const SizedBox(height: 8),
+              ]).toList(),
+            );
+          }
+          return const SizedBox.shrink();
+        },
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _showAddMedicationSheet(context),
+        icon: const Icon(Icons.add_rounded),
+        label: const Text('إضافة دواء'),
       ),
     );
   }
@@ -119,8 +123,8 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
       context: ctx,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (_) => BlocProvider.value(
-        value: ctx.read<MedicationBloc>(),
+      builder: (_) => ProviderScope(
+        parent: ProviderScope.containerOf(ctx),
         child: _AddMedicationSheet(doctorId: _doctorId ?? ''),
       ),
     );
@@ -178,13 +182,13 @@ class _MedicationCard extends StatelessWidget {
   }
 }
 
-class _AddMedicationSheet extends StatefulWidget {
+class _AddMedicationSheet extends ConsumerStatefulWidget {
   final String doctorId;
   const _AddMedicationSheet({required this.doctorId});
-  @override State<_AddMedicationSheet> createState() => _AddMedicationSheetState();
+  @override ConsumerState<_AddMedicationSheet> createState() => _AddMedicationSheetState();
 }
 
-class _AddMedicationSheetState extends State<_AddMedicationSheet> {
+class _AddMedicationSheetState extends ConsumerState<_AddMedicationSheet> {
   final _nameCtrl = TextEditingController();
   final _genericCtrl = TextEditingController();
   final _strengthCtrl = TextEditingController();
@@ -222,7 +226,7 @@ class _AddMedicationSheetState extends State<_AddMedicationSheet> {
           SizedBox(width: double.infinity, child: ElevatedButton(
             onPressed: () {
               if (_nameCtrl.text.trim().isEmpty) return;
-              context.read<MedicationBloc>().add(AddMedication(MedicationModel(
+              ref.read(medicationProvider.notifier).addMedication(MedicationModel(
                 id: const Uuid().v4(),
                 doctorId: widget.doctorId,
                 name: _nameCtrl.text.trim(),
@@ -231,7 +235,7 @@ class _AddMedicationSheetState extends State<_AddMedicationSheet> {
                 strength: _strengthCtrl.text.trim().isEmpty ? null : _strengthCtrl.text.trim(),
                 notes: _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
                 createdAt: DateTime.now(),
-              )));
+              ));
               Navigator.pop(context);
             },
             child: const Text('إضافة الدواء'),

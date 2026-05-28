@@ -1,26 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../data/models/examination_model.dart';
-import '../../blocs/examination/examination_bloc.dart';
+import '../../providers/examination/examination_provider.dart';
 
-class ChartsScreen extends StatefulWidget {
+class ChartsScreen extends ConsumerStatefulWidget {
   final String patientId;
   const ChartsScreen({super.key, required this.patientId});
-  @override State<ChartsScreen> createState() => _ChartsScreenState();
+  @override ConsumerState<ChartsScreen> createState() => _ChartsScreenState();
 }
 
-class _ChartsScreenState extends State<ChartsScreen> with SingleTickerProviderStateMixin {
+class _ChartsScreenState extends ConsumerState<ChartsScreen> with SingleTickerProviderStateMixin {
   late TabController _tabCtrl;
 
   @override
   void initState() {
     super.initState();
     _tabCtrl = TabController(length: 3, vsync: this);
-    context.read<ExaminationBloc>().add(LoadGrowthRecords(widget.patientId));
+    Future.microtask(() {
+      ref.read(examinationProvider.notifier).loadGrowthRecords(widget.patientId);
+    });
   }
 
   @override
@@ -28,6 +30,8 @@ class _ChartsScreenState extends State<ChartsScreen> with SingleTickerProviderSt
 
   @override
   Widget build(BuildContext context) {
+    final state = ref.watch(examinationProvider);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('الرسوم البيانية'),
@@ -39,8 +43,8 @@ class _ChartsScreenState extends State<ChartsScreen> with SingleTickerProviderSt
           tabs: const [Tab(text: 'الوزن'), Tab(text: 'الطول'), Tab(text: 'الفحوصات')],
         ),
       ),
-      body: BlocBuilder<ExaminationBloc, ExaminationState>(
-        builder: (context, state) {
+      body: Builder(
+        builder: (context) {
           if (state is ExaminationLoading) return const Center(child: CircularProgressIndicator());
           if (state is GrowthRecordsLoaded) {
             return TabBarView(

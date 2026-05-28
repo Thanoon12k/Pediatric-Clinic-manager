@@ -1,22 +1,24 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
-import '../../blocs/patient/patient_bloc.dart';
+import '../../providers/patient/patient_provider.dart';
 import '../../../data/models/patient_model.dart';
 
-class PdfReportScreen extends StatefulWidget {
+class PdfReportScreen extends ConsumerStatefulWidget {
   final String patientId;
   const PdfReportScreen({super.key, required this.patientId});
-  @override State<PdfReportScreen> createState() => _PdfReportScreenState();
+  @override ConsumerState<PdfReportScreen> createState() => _PdfReportScreenState();
 }
 
-class _PdfReportScreenState extends State<PdfReportScreen> {
+class _PdfReportScreenState extends ConsumerState<PdfReportScreen> {
   @override
   void initState() {
     super.initState();
-    context.read<PatientBloc>().add(LoadPatientById(widget.patientId));
+    Future.microtask(() {
+      ref.read(patientProvider.notifier).loadPatientById(widget.patientId);
+    });
   }
 
   Future<pw.Document> _buildPdf(PatientModel patient) async {
@@ -96,10 +98,12 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final state = ref.watch(patientProvider);
+
     return Scaffold(
       appBar: AppBar(title: const Text('تقرير المريض PDF')),
-      body: BlocBuilder<PatientBloc, PatientState>(
-        builder: (context, state) {
+      body: Builder(
+        builder: (context) {
           if (state is PatientLoading) return const Center(child: CircularProgressIndicator());
           if (state is PatientLoaded) {
             return PdfPreview(

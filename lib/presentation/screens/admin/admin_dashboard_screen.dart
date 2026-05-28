@@ -1,93 +1,97 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
-import '../../blocs/doctor/doctor_bloc.dart';
-import '../../blocs/auth/auth_bloc.dart';
+import '../../providers/doctor/doctor_provider.dart';
+import '../../providers/auth/auth_provider.dart';
 import '../../widgets/app_snackbar.dart';
 import '../../../data/models/doctor_model.dart';
 
-class AdminDashboardScreen extends StatefulWidget {
+class AdminDashboardScreen extends ConsumerStatefulWidget {
   const AdminDashboardScreen({super.key});
-  @override State<AdminDashboardScreen> createState() => _AdminDashboardScreenState();
+  @override ConsumerState<AdminDashboardScreen> createState() => _AdminDashboardScreenState();
 }
 
-class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
+class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
   @override
   void initState() {
     super.initState();
-    context.read<DoctorBloc>().add(LoadDoctors());
+    Future.microtask(() {
+      ref.read(doctorProvider.notifier).loadDoctors();
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    return BlocListener<AuthBloc, AuthBlocState>(
-      listener: (context, state) {
-        if (state is AuthUnauthenticated) context.go('/welcome');
-      },
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('لوحة المشرف'),
-          actions: [
-            IconButton(
-              onPressed: () => context.read<AuthBloc>().add(AuthLogoutRequested()),
-              icon: const Icon(Icons.logout_rounded, color: Colors.white),
-            ),
-          ],
-        ),
-        body: BlocConsumer<DoctorBloc, DoctorState>(
-          listener: (context, state) {
-            if (state is DoctorSuccess) {
-              AppSnackbar.success(context, state.message);
-              context.read<DoctorBloc>().add(LoadDoctors());
-            }
-            if (state is DoctorError) AppSnackbar.error(context, state.message);
-          },
-          builder: (context, state) {
-            if (state is DoctorLoading) return const Center(child: CircularProgressIndicator());
-            if (state is DoctorsLoaded) {
-              final active = state.doctors.where((d) => d.isActive).length;
-              return CustomScrollView(
-                slivers: [
-                  SliverToBoxAdapter(
-                    child: Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: const BoxDecoration(gradient: AppColors.primaryGradient),
-                      child: Row(children: [
-                        _StatPill(label: 'إجمالي الأطباء', value: '${state.doctors.length}', icon: Icons.medical_services_rounded),
-                        const SizedBox(width: 12),
-                        _StatPill(label: 'نشطون', value: '$active', icon: Icons.check_circle_rounded),
-                        const SizedBox(width: 12),
-                        _StatPill(label: 'غير نشطين', value: '${state.doctors.length - active}', icon: Icons.block_rounded),
-                      ]),
+    ref.listen<AuthBlocState>(authProvider, (previous, next) {
+      if (next is AuthUnauthenticated) context.go('/welcome');
+    });
+
+    ref.listen<DoctorState>(doctorProvider, (previous, next) {
+      if (next is DoctorSuccess) {
+        AppSnackbar.success(context, next.message);
+        ref.read(doctorProvider.notifier).loadDoctors();
+      }
+      if (next is DoctorError) AppSnackbar.error(context, next.message);
+    });
+
+    final state = ref.watch(doctorProvider);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('لوحة المشرف'),
+        actions: [
+          IconButton(
+            onPressed: () => ref.read(authProvider.notifier).logout(),
+            icon: const Icon(Icons.logout_rounded, color: Colors.white),
+          ),
+        ],
+      ),
+      body: Builder(
+        builder: (context) {
+          if (state is DoctorLoading) return const Center(child: CircularProgressIndicator());
+          if (state is DoctorsLoaded) {
+            final active = state.doctors.where((d) => d.isActive).length;
+            return CustomScrollView(
+              slivers: [
+                SliverToBoxAdapter(
+                  child: Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: const BoxDecoration(gradient: AppColors.primaryGradient),
+                    child: Row(children: [
+                      _StatPill(label: 'إجمالي الأطباء', value: '${state.doctors.length}', icon: Icons.medical_services_rounded),
+                      const SizedBox(width: 12),
+                      _StatPill(label: 'نشطون', value: '$active', icon: Icons.check_circle_rounded),
+                      const SizedBox(width: 12),
+                      _StatPill(label: 'غير نشطين', value: '${state.doctors.length - active}', icon: Icons.block_rounded),
+                    ]),
+                  ),
+                ),
+                SliverPadding(
+                  padding: const EdgeInsets.all(16),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, i) => _DoctorManagementCard(
+                        doctor: state.doctors[i],
+                        onToggle: () => ref.read(doctorProvider.notifier).toggleDoctorStatus(
+                            id: state.doctors[i].id, isActive: !state.doctors[i].isActive),
+                        onDelete: () => _confirmDelete(context, state.doctors[i]),
+                      ).animate(delay: Duration(milliseconds: i * 60)).fadeIn().slideY(begin: 0.2),
+                      childCount: state.doctors.length,
                     ),
                   ),
-                  SliverPadding(
-                    padding: const EdgeInsets.all(16),
-                    sliver: SliverList(
-                      delegate: SliverChildBuilderDelegate(
-                        (context, i) => _DoctorManagementCard(
-                          doctor: state.doctors[i],
-                          onToggle: () => context.read<DoctorBloc>().add(
-                              ToggleDoctorStatus(id: state.doctors[i].id, isActive: !state.doctors[i].isActive)),
-                          onDelete: () => _confirmDelete(context, state.doctors[i]),
-                        ).animate(delay: Duration(milliseconds: i * 60)).fadeIn().slideY(begin: 0.2),
-                        childCount: state.doctors.length,
-                      ),
-                    ),
-                  ),
-                ],
-              );
-            }
-            return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-              const Icon(Icons.people_outline_rounded, size: 80, color: AppColors.textHint),
-              const SizedBox(height: 16),
-              Text('لا يوجد أطباء مسجلون', style: AppTextStyles.bodyLarge.copyWith(color: AppColors.textHint)),
-            ]));
-          },
-        ),
+                ),
+              ],
+            );
+          }
+          return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+            const Icon(Icons.people_outline_rounded, size: 80, color: AppColors.textHint),
+            const SizedBox(height: 16),
+            Text('لا يوجد أطباء مسجلون', style: AppTextStyles.bodyLarge.copyWith(color: AppColors.textHint)),
+          ]));
+        },
       ),
     );
   }
@@ -102,7 +106,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
-            onPressed: () { Navigator.pop(context); context.read<DoctorBloc>().add(DeleteDoctor(doctor.id)); },
+            onPressed: () {
+              Navigator.pop(context);
+              ref.read(doctorProvider.notifier).deleteDoctor(doctor.id);
+            },
             child: const Text('حذف'),
           ),
         ],

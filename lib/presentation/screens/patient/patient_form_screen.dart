@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
@@ -7,19 +7,19 @@ import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../data/models/patient_model.dart';
-import '../../blocs/patient/patient_bloc.dart';
-import '../../blocs/doctor/doctor_bloc.dart';
+import '../../providers/patient/patient_provider.dart';
+import '../../providers/doctor/doctor_provider.dart';
 import '../../widgets/app_snackbar.dart';
 
-class PatientFormScreen extends StatefulWidget {
+class PatientFormScreen extends ConsumerStatefulWidget {
   final String? patientId;
   const PatientFormScreen({super.key, this.patientId});
 
   @override
-  State<PatientFormScreen> createState() => _PatientFormScreenState();
+  ConsumerState<PatientFormScreen> createState() => _PatientFormScreenState();
 }
 
-class _PatientFormScreenState extends State<PatientFormScreen> {
+class _PatientFormScreenState extends ConsumerState<PatientFormScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameCtrl = TextEditingController();
   final _guardianNameCtrl = TextEditingController();
@@ -45,16 +45,18 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
   @override
   void initState() {
     super.initState();
-    _loadDoctorId();
-    if (isEditing) {
-      context.read<PatientBloc>().add(LoadPatientById(widget.patientId!));
-    }
+    Future.microtask(() {
+      _loadDoctorId();
+      if (isEditing) {
+        ref.read(patientProvider.notifier).loadPatientById(widget.patientId!);
+      }
+    });
   }
 
   void _loadDoctorId() {
     final userId = Supabase.instance.client.auth.currentUser?.id;
     if (userId != null) {
-      context.read<DoctorBloc>().add(LoadDoctorByUserId(userId));
+      ref.read(doctorProvider.notifier).loadDoctorByUserId(userId);
     }
   }
 
@@ -120,126 +122,115 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
     );
 
     if (isEditing) {
-      context.read<PatientBloc>().add(UpdatePatient(patient));
+      ref.read(patientProvider.notifier).updatePatient(patient);
     } else {
-      context.read<PatientBloc>().add(CreatePatient(patient));
+      ref.read(patientProvider.notifier).createPatient(patient);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return MultiBlocListener(
-      listeners: [
-        BlocListener<PatientBloc, PatientState>(
-          listener: (context, state) {
-            if (state is PatientLoaded && isEditing) {
-              _populateFromExisting(state.patient);
-            }
-            if (state is PatientOperationSuccess) {
-              AppSnackbar.success(context, state.message);
-              context.go(AppConstants.routePatientList);
-            }
-            if (state is PatientError) AppSnackbar.error(context, state.message);
-          },
+    final state = ref.watch(patientProvider);
+
+    ref.listen<PatientState>(patientProvider, (previous, next) {
+      if (next is PatientLoaded && isEditing) {
+        _populateFromExisting(next.patient);
+      }
+      if (next is PatientOperationSuccess) {
+        AppSnackbar.success(context, next.message);
+        context.go(AppConstants.routePatientList);
+      }
+      if (next is PatientError) AppSnackbar.error(context, next.message);
+    });
+
+    ref.listen<DoctorState>(doctorProvider, (previous, next) {
+      if (next is DoctorProfileLoaded && next.doctor != null) {
+        setState(() => _doctorId = next.doctor!.id);
+      }
+    });
+
+    if (state is PatientLoading && isEditing) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(isEditing ? 'تعديل بيانات المريض' : 'إضافة مريض جديد'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded),
+          onPressed: () => context.pop(),
         ),
-        BlocListener<DoctorBloc, DoctorState>(
-          listener: (context, state) {
-            if (state is DoctorProfileLoaded && state.doctor != null) {
-              setState(() => _doctorId = state.doctor!.id);
-            }
-          },
-        ),
-      ],
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text(isEditing ? 'تعديل بيانات المريض' : 'إضافة مريض جديد'),
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back_ios_new_rounded),
-            onPressed: () => context.pop(),
+        actions: [
+          TextButton(
+            onPressed: state is PatientLoading ? null : _submit,
+            child: const Text('حفظ', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           ),
-          actions: [
-            BlocBuilder<PatientBloc, PatientState>(
-              builder: (context, state) => TextButton(
-                onPressed: state is PatientLoading ? null : _submit,
-                child: const Text('حفظ', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        ],
+      ),
+      body: Form(
+        key: _formKey,
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            _buildSection('البيانات الأساسية', [
+              _buildTextField('اسم المريض *', _nameCtrl, Icons.person_outline, required: true),
+              const SizedBox(height: 12),
+              _buildDateField('تاريخ الميلاد *', _dateOfBirth, (picked) => setState(() => _dateOfBirth = picked)),
+              const SizedBox(height: 12),
+              _buildGenderSelector(),
+              const SizedBox(height: 12),
+              _buildBloodTypeDropdown(),
+              const SizedBox(height: 12),
+              Row(children: [
+                Expanded(child: _buildTextField('الوزن (كغ)', _weightCtrl, Icons.monitor_weight_rounded, type: TextInputType.number)),
+                const SizedBox(width: 12),
+                Expanded(child: _buildTextField('الطول (سم)', _heightCtrl, Icons.height_rounded, type: TextInputType.number)),
+              ]),
+            ]),
+            const SizedBox(height: 16),
+            _buildSection('ولي الأمر', [
+              _buildTextField('اسم ولي الأمر *', _guardianNameCtrl, Icons.family_restroom_rounded, required: true),
+              const SizedBox(height: 12),
+              _buildTextField('هاتف ولي الأمر *', _guardianPhoneCtrl, Icons.phone_outlined, type: TextInputType.phone, required: true),
+              const SizedBox(height: 12),
+              _buildTextField('البريد الإلكتروني', _guardianEmailCtrl, Icons.email_outlined, type: TextInputType.emailAddress),
+              const SizedBox(height: 12),
+              _buildTextField('العنوان', _addressCtrl, Icons.location_on_outlined),
+            ]),
+            const SizedBox(height: 16),
+            _buildSection('الحالة الصحية', [
+              _buildTreatmentStatusSelector(),
+              const SizedBox(height: 12),
+              _buildTextField('الحساسية', _allergiesCtrl, Icons.warning_amber_outlined),
+              const SizedBox(height: 12),
+              _buildTextField('أمراض مزمنة', _chronicCtrl, Icons.local_hospital_outlined),
+              const SizedBox(height: 12),
+              _buildDateField('المراجعة القادمة', _nextVisitDate, (d) => setState(() => _nextVisitDate = d), allowNull: true),
+            ]),
+            const SizedBox(height: 16),
+            _buildSection('تمكين التواصل', [
+              _buildSwitch('المحادثة النصية', _allowChat, (v) => setState(() => _allowChat = v)),
+              _buildSwitch('إرسال الصور', _allowPhotos, (v) => setState(() => _allowPhotos = v)),
+              _buildSwitch('الرسائل الصوتية', _allowVoice, (v) => setState(() => _allowVoice = v)),
+              _buildSwitch('الرسائل النصية', _allowMessages, (v) => setState(() => _allowMessages = v)),
+            ]),
+            const SizedBox(height: 16),
+            _buildSection('ملاحظات', [
+              TextFormField(
+                controller: _notesCtrl,
+                maxLines: 4,
+                decoration: const InputDecoration(hintText: 'أدخل ملاحظاتك هنا...', prefixIcon: Icon(Icons.notes_rounded)),
               ),
+            ]),
+            const SizedBox(height: 32),
+            ElevatedButton(
+              onPressed: state is PatientLoading ? null : _submit,
+              child: state is PatientLoading
+                  ? const SizedBox(height: 22, width: 22, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : Text(isEditing ? 'حفظ التعديلات' : 'إضافة المريض'),
             ),
+            const SizedBox(height: 32),
           ],
-        ),
-        body: BlocBuilder<PatientBloc, PatientState>(
-          builder: (context, state) {
-            if (state is PatientLoading && isEditing) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            return Form(
-              key: _formKey,
-              child: ListView(
-                padding: const EdgeInsets.all(16),
-                children: [
-                  _buildSection('البيانات الأساسية', [
-                    _buildTextField('اسم المريض *', _nameCtrl, Icons.person_outline, required: true),
-                    const SizedBox(height: 12),
-                    _buildDateField('تاريخ الميلاد *', _dateOfBirth, (picked) => setState(() => _dateOfBirth = picked)),
-                    const SizedBox(height: 12),
-                    _buildGenderSelector(),
-                    const SizedBox(height: 12),
-                    _buildBloodTypeDropdown(),
-                    const SizedBox(height: 12),
-                    Row(children: [
-                      Expanded(child: _buildTextField('الوزن (كغ)', _weightCtrl, Icons.monitor_weight_rounded, type: TextInputType.number)),
-                      const SizedBox(width: 12),
-                      Expanded(child: _buildTextField('الطول (سم)', _heightCtrl, Icons.height_rounded, type: TextInputType.number)),
-                    ]),
-                  ]),
-                  const SizedBox(height: 16),
-                  _buildSection('ولي الأمر', [
-                    _buildTextField('اسم ولي الأمر *', _guardianNameCtrl, Icons.family_restroom_rounded, required: true),
-                    const SizedBox(height: 12),
-                    _buildTextField('هاتف ولي الأمر *', _guardianPhoneCtrl, Icons.phone_outlined, type: TextInputType.phone, required: true),
-                    const SizedBox(height: 12),
-                    _buildTextField('البريد الإلكتروني', _guardianEmailCtrl, Icons.email_outlined, type: TextInputType.emailAddress),
-                    const SizedBox(height: 12),
-                    _buildTextField('العنوان', _addressCtrl, Icons.location_on_outlined),
-                  ]),
-                  const SizedBox(height: 16),
-                  _buildSection('الحالة الصحية', [
-                    _buildTreatmentStatusSelector(),
-                    const SizedBox(height: 12),
-                    _buildTextField('الحساسية', _allergiesCtrl, Icons.warning_amber_outlined),
-                    const SizedBox(height: 12),
-                    _buildTextField('أمراض مزمنة', _chronicCtrl, Icons.local_hospital_outlined),
-                    const SizedBox(height: 12),
-                    _buildDateField('المراجعة القادمة', _nextVisitDate, (d) => setState(() => _nextVisitDate = d), allowNull: true),
-                  ]),
-                  const SizedBox(height: 16),
-                  _buildSection('تمكين التواصل', [
-                    _buildSwitch('المحادثة النصية', _allowChat, (v) => setState(() => _allowChat = v)),
-                    _buildSwitch('إرسال الصور', _allowPhotos, (v) => setState(() => _allowPhotos = v)),
-                    _buildSwitch('الرسائل الصوتية', _allowVoice, (v) => setState(() => _allowVoice = v)),
-                    _buildSwitch('الرسائل النصية', _allowMessages, (v) => setState(() => _allowMessages = v)),
-                  ]),
-                  const SizedBox(height: 16),
-                  _buildSection('ملاحظات', [
-                    TextFormField(
-                      controller: _notesCtrl,
-                      maxLines: 4,
-                      decoration: const InputDecoration(hintText: 'أدخل ملاحظاتك هنا...', prefixIcon: Icon(Icons.notes_rounded)),
-                    ),
-                  ]),
-                  const SizedBox(height: 32),
-                  BlocBuilder<PatientBloc, PatientState>(
-                    builder: (context, state) => ElevatedButton(
-                      onPressed: state is PatientLoading ? null : _submit,
-                      child: state is PatientLoading
-                          ? const SizedBox(height: 22, width: 22, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                          : Text(isEditing ? 'حفظ التعديلات' : 'إضافة المريض'),
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-                ],
-              ),
-            );
-          },
         ),
       ),
     );
@@ -259,7 +250,7 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
             padding: const EdgeInsets.all(16),
             child: Text(title, style: AppTextStyles.titleSmall.copyWith(color: AppColors.primary)),
           ),
-          Divider(height: 1),
+          const Divider(height: 1),
           Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: children)),
         ],
       ),
@@ -347,7 +338,6 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
         Text('فصيلة الدم', style: AppTextStyles.labelLarge),
         const SizedBox(height: 6),
         DropdownButtonFormField<String>(
-          // ignore: deprecated_member_use
           value: _bloodType,
           decoration: const InputDecoration(prefixIcon: Icon(Icons.bloodtype_outlined)),
           hint: const Text('اختر فصيلة الدم'),

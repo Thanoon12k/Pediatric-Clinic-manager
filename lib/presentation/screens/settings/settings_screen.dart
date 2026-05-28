@@ -1,19 +1,19 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
-import '../../blocs/auth/auth_bloc.dart';
+import '../../providers/auth/auth_provider.dart';
 import '../../widgets/app_snackbar.dart';
 
-class SettingsScreen extends StatefulWidget {
+class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
-  @override State<SettingsScreen> createState() => _SettingsScreenState();
+  @override ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
 }
 
-class _SettingsScreenState extends State<SettingsScreen> {
+class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   late String _locale;
   late bool _isDark;
 
@@ -27,6 +27,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<AuthBlocState>(authProvider, (previous, next) {
+      if (next is AuthUnauthenticated) context.go(AppConstants.routeWelcome);
+    });
+
     return Scaffold(
       appBar: AppBar(title: const Text('الإعدادات')),
       body: ListView(
@@ -74,18 +78,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ]),
 
           const SizedBox(height: 32),
-          BlocConsumer<AuthBloc, AuthBlocState>(
-            listener: (context, state) {
-              if (state is AuthUnauthenticated) context.go(AppConstants.routeWelcome);
-            },
-            builder: (context, state) => OutlinedButton.icon(
-              onPressed: () => _confirmLogout(context),
-              icon: const Icon(Icons.logout_rounded, color: AppColors.error),
-              label: const Text('تسجيل الخروج', style: TextStyle(color: AppColors.error)),
-              style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: AppColors.error),
-                padding: const EdgeInsets.symmetric(vertical: 14),
-              ),
+          OutlinedButton.icon(
+            onPressed: () => _confirmLogout(context),
+            icon: const Icon(Icons.logout_rounded, color: AppColors.error),
+            label: const Text('تسجيل الخروج', style: TextStyle(color: AppColors.error)),
+            style: OutlinedButton.styleFrom(
+              side: const BorderSide(color: AppColors.error),
+              padding: const EdgeInsets.symmetric(vertical: 14),
             ),
           ),
           const SizedBox(height: 32),
@@ -113,7 +112,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
             onPressed: () {
               Navigator.pop(context);
-              context.read<AuthBloc>().add(AuthLogoutRequested());
+              ref.read(authProvider.notifier).logout();
             },
             child: const Text('خروج'),
           ),

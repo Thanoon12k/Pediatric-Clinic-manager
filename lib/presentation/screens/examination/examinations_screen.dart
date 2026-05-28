@@ -1,21 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../data/models/examination_model.dart';
-import '../../blocs/examination/examination_bloc.dart';
+import '../../providers/examination/examination_provider.dart';
 import '../../widgets/app_snackbar.dart';
 
-class ExaminationsScreen extends StatelessWidget {
+class ExaminationsScreen extends ConsumerWidget {
   final String patientId;
   const ExaminationsScreen({super.key, required this.patientId});
 
   @override
-  Widget build(BuildContext context) {
-    context.read<ExaminationBloc>().add(LoadExaminations(patientId));
+  Widget build(BuildContext context, WidgetRef ref) {
+    Future.microtask(() {
+      ref.read(examinationProvider.notifier).loadExaminations(patientId);
+    });
+
     return DefaultTabController(
       length: 2,
       child: Scaffold(
@@ -33,7 +36,7 @@ class ExaminationsScreen extends StatelessWidget {
           _GrowthTab(patientId: patientId),
         ]),
         floatingActionButton: FloatingActionButton.extended(
-          onPressed: () => _showAddExaminationSheet(context, patientId),
+          onPressed: () => _showAddExaminationSheet(context, ref, patientId),
           icon: const Icon(Icons.add_rounded),
           label: const Text('إضافة فحص'),
         ),
@@ -41,56 +44,52 @@ class ExaminationsScreen extends StatelessWidget {
     );
   }
 
-  static void _showAddExaminationSheet(BuildContext ctx, String patientId) {
+  static void _showAddExaminationSheet(BuildContext ctx, WidgetRef ref, String patientId) {
     showModalBottomSheet(
       context: ctx,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (_) => BlocProvider.value(
-        value: ctx.read<ExaminationBloc>(),
-        child: _AddExaminationSheet(patientId: patientId),
-      ),
+      builder: (_) => _AddExaminationSheet(patientId: patientId),
     );
   }
 }
 
-class _ExaminationsList extends StatelessWidget {
+class _ExaminationsList extends ConsumerWidget {
   final String patientId;
   const _ExaminationsList({required this.patientId});
 
   @override
-  Widget build(BuildContext context) {
-    return BlocConsumer<ExaminationBloc, ExaminationState>(
-      listener: (ctx, state) {
-        if (state is ExaminationSuccess) {
-          AppSnackbar.success(ctx, state.message);
-          ctx.read<ExaminationBloc>().add(LoadExaminations(patientId));
-        }
-        if (state is ExaminationError) AppSnackbar.error(ctx, state.message);
-      },
-      builder: (ctx, state) {
-        if (state is ExaminationLoading) return const Center(child: CircularProgressIndicator());
-        if (state is ExaminationsLoaded && state.examinations.isEmpty) {
-          return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-            const Icon(Icons.medical_services_outlined, size: 64, color: AppColors.textHint),
-            const SizedBox(height: 16),
-            Text('لا توجد فحوصات مسجلة', style: AppTextStyles.bodyLarge.copyWith(color: AppColors.textHint)),
-          ]));
-        }
-        if (state is ExaminationsLoaded) {
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: state.examinations.length,
-            itemBuilder: (ctx, i) {
-              final exam = state.examinations[i];
-              return _ExamCard(exam: exam, onDelete: () => ctx.read<ExaminationBloc>().add(DeleteExamination(exam.id)))
-                  .animate(delay: Duration(milliseconds: i * 60)).fadeIn().slideX(begin: 0.2);
-            },
-          );
-        }
-        return const SizedBox.shrink();
-      },
-    );
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(examinationProvider);
+
+    ref.listen<ExaminationState>(examinationProvider, (previous, next) {
+      if (next is ExaminationSuccess) {
+        AppSnackbar.success(context, next.message);
+        ref.read(examinationProvider.notifier).loadExaminations(patientId);
+      }
+      if (next is ExaminationError) AppSnackbar.error(context, next.message);
+    });
+
+    if (state is ExaminationLoading) return const Center(child: CircularProgressIndicator());
+    if (state is ExaminationsLoaded && state.examinations.isEmpty) {
+      return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+        const Icon(Icons.medical_services_outlined, size: 64, color: AppColors.textHint),
+        const SizedBox(height: 16),
+        Text('لا توجد فحوصات مسجلة', style: AppTextStyles.bodyLarge.copyWith(color: AppColors.textHint)),
+      ]));
+    }
+    if (state is ExaminationsLoaded) {
+      return ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: state.examinations.length,
+        itemBuilder: (ctx, i) {
+          final exam = state.examinations[i];
+          return _ExamCard(exam: exam, onDelete: () => ref.read(examinationProvider.notifier).deleteExamination(exam.id))
+              .animate(delay: Duration(milliseconds: i * 60)).fadeIn().slideX(begin: 0.2);
+        },
+      );
+    }
+    return const SizedBox.shrink();
   }
 }
 
@@ -173,13 +172,13 @@ class _GrowthTab extends StatelessWidget {
   }
 }
 
-class _AddExaminationSheet extends StatefulWidget {
+class _AddExaminationSheet extends ConsumerStatefulWidget {
   final String patientId;
   const _AddExaminationSheet({required this.patientId});
-  @override State<_AddExaminationSheet> createState() => _AddExaminationSheetState();
+  @override ConsumerState<_AddExaminationSheet> createState() => _AddExaminationSheetState();
 }
 
-class _AddExaminationSheetState extends State<_AddExaminationSheet> {
+class _AddExaminationSheetState extends ConsumerState<_AddExaminationSheet> {
   String _type = 'general';
   final _resultCtrl = TextEditingController();
   final _notesCtrl = TextEditingController();
@@ -236,7 +235,7 @@ class _AddExaminationSheetState extends State<_AddExaminationSheet> {
               child: ElevatedButton(
                 onPressed: () {
                   final doctorId = Supabase.instance.client.auth.currentUser?.id ?? '';
-                  context.read<ExaminationBloc>().add(AddExamination(ExaminationModel(
+                  ref.read(examinationProvider.notifier).addExamination(ExaminationModel(
                     id: const Uuid().v4(),
                     patientId: widget.patientId,
                     doctorId: doctorId,
@@ -249,7 +248,7 @@ class _AddExaminationSheetState extends State<_AddExaminationSheet> {
                     weightAtExam: double.tryParse(_weightCtrl.text),
                     heightAtExam: double.tryParse(_heightCtrl.text),
                     createdAt: DateTime.now(),
-                  )));
+                  ));
                   Navigator.pop(context);
                 },
                 child: const Text('إضافة الفحص'),

@@ -1,20 +1,22 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
-import '../../blocs/patient/patient_bloc.dart';
+import '../../providers/patient/patient_provider.dart';
 import '../../widgets/patient_list_tile.dart';
 
-class PatientListScreen extends StatelessWidget {
+class PatientListScreen extends ConsumerWidget {
   const PatientListScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(patientProvider);
+
     return Scaffold(
       appBar: AppBar(title: const Text('قائمة المرضى')),
-      body: BlocBuilder<PatientBloc, PatientState>(
-        builder: (context, state) {
+      body: Builder(
+        builder: (context) {
           if (state is PatientLoading) return const Center(child: CircularProgressIndicator());
           if (state is PatientsLoaded && state.patients.isEmpty) {
             return Center(child: Column(

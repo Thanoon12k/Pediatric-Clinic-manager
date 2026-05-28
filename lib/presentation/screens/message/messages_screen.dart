@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
@@ -8,22 +8,26 @@ import 'package:timeago/timeago.dart' as timeago;
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../data/models/message_model.dart';
-import '../../blocs/message/message_bloc.dart';
+import '../../providers/message/message_provider.dart';
 import '../../widgets/app_snackbar.dart';
 
 // ─── Messages List Screen ────────────────────────────────────────────────────
-class MessagesScreen extends StatelessWidget {
+class MessagesScreen extends ConsumerWidget {
   const MessagesScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final userId = Supabase.instance.client.auth.currentUser?.id ?? '';
-    context.read<MessageBloc>().add(LoadConversations(userId));
+    Future.microtask(() {
+      ref.read(messageProvider.notifier).loadConversations(userId);
+    });
+
+    final state = ref.watch(messageProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('رسائل المرضى')),
-      body: BlocBuilder<MessageBloc, MessageState>(
-        builder: (context, state) {
+      body: Builder(
+        builder: (context) {
           if (state is MessageLoading) return const Center(child: CircularProgressIndicator());
           if (state is ConversationsLoaded && state.conversations.isEmpty) {
             return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
@@ -67,14 +71,14 @@ class MessagesScreen extends StatelessWidget {
 }
 
 // ─── Chat Screen ─────────────────────────────────────────────────────────────
-class ChatScreen extends StatefulWidget {
+class ChatScreen extends ConsumerStatefulWidget {
   final String conversationId;
   final String recipientName;
   const ChatScreen({super.key, required this.conversationId, required this.recipientName});
-  @override State<ChatScreen> createState() => _ChatScreenState();
+  @override ConsumerState<ChatScreen> createState() => _ChatScreenState();
 }
 
-class _ChatScreenState extends State<ChatScreen> {
+class _ChatScreenState extends ConsumerState<ChatScreen> {
   final _msgCtrl = TextEditingController();
   final _scrollCtrl = ScrollController();
   String _myId = '';
@@ -83,7 +87,9 @@ class _ChatScreenState extends State<ChatScreen> {
   void initState() {
     super.initState();
     _myId = Supabase.instance.client.auth.currentUser?.id ?? '';
-    context.read<MessageBloc>().add(LoadMessages(widget.conversationId));
+    Future.microtask(() {
+      ref.read(messageProvider.notifier).loadMessages(widget.conversationId);
+    });
     timeago.setLocaleMessages('ar', timeago.ArMessages());
   }
 
@@ -94,14 +100,14 @@ class _ChatScreenState extends State<ChatScreen> {
     final text = _msgCtrl.text.trim();
     if (text.isEmpty) return;
     final myName = Supabase.instance.client.auth.currentUser?.email ?? '';
-    context.read<MessageBloc>().add(SendMessage(MessageModel(
+    ref.read(messageProvider.notifier).sendMessage(MessageModel(
       id: const Uuid().v4(),
       conversationId: widget.conversationId,
       senderId: _myId,
       senderName: myName,
       content: text,
       createdAt: DateTime.now(),
-    )));
+    ));
     _msgCtrl.clear();
     Future.delayed(const Duration(milliseconds: 100), () {
       if (_scrollCtrl.hasClients) _scrollCtrl.animateTo(_scrollCtrl.position.maxScrollExtent, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
@@ -110,6 +116,12 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final state = ref.watch(messageProvider);
+
+    ref.listen<MessageState>(messageProvider, (previous, next) {
+      if (next is MessageError) AppSnackbar.error(context, next.message);
+    });
+
     return Scaffold(
       appBar: AppBar(
         title: Row(children: [
@@ -122,11 +134,8 @@ class _ChatScreenState extends State<ChatScreen> {
       body: Column(
         children: [
           Expanded(
-            child: BlocConsumer<MessageBloc, MessageState>(
-              listener: (context, state) {
-                if (state is MessageError) AppSnackbar.error(context, state.message);
-              },
-              builder: (context, state) {
+            child: Builder(
+              builder: (context) {
                 if (state is MessageLoading) return const Center(child: CircularProgressIndicator());
                 if (state is MessagesLoaded) {
                   if (state.messages.isEmpty) {
@@ -175,13 +184,11 @@ class _ChatScreenState extends State<ChatScreen> {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  BlocBuilder<MessageBloc, MessageState>(
-                    builder: (context, state) => CircleAvatar(
-                      backgroundColor: AppColors.primary,
-                      child: IconButton(
-                        icon: const Icon(Icons.send_rounded, color: Colors.white, size: 20),
-                        onPressed: _send,
-                      ),
+                  CircleAvatar(
+                    backgroundColor: AppColors.primary,
+                    child: IconButton(
+                      icon: const Icon(Icons.send_rounded, color: Colors.white, size: 20),
+                      onPressed: _send,
                     ),
                   ),
                 ],

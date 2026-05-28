@@ -1,23 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../data/models/patient_model.dart';
-import '../../blocs/patient/patient_bloc.dart';
+import '../../providers/patient/patient_provider.dart';
 import '../../widgets/app_snackbar.dart';
 
-class PatientProfileScreen extends StatefulWidget {
+class PatientProfileScreen extends ConsumerStatefulWidget {
   final String patientId;
   const PatientProfileScreen({super.key, required this.patientId});
 
   @override
-  State<PatientProfileScreen> createState() => _PatientProfileScreenState();
+  ConsumerState<PatientProfileScreen> createState() => _PatientProfileScreenState();
 }
 
-class _PatientProfileScreenState extends State<PatientProfileScreen>
+class _PatientProfileScreenState extends ConsumerState<PatientProfileScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
@@ -25,7 +25,9 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 5, vsync: this);
-    context.read<PatientBloc>().add(LoadPatientById(widget.patientId));
+    Future.microtask(() {
+      ref.read(patientProvider.notifier).loadPatientById(widget.patientId);
+    });
   }
 
   @override
@@ -36,25 +38,24 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
 
   @override
   Widget build(BuildContext context) {
-    return BlocConsumer<PatientBloc, PatientState>(
-      listener: (context, state) {
-        if (state is PatientOperationSuccess) {
-          AppSnackbar.success(context, state.message);
-          context.read<PatientBloc>().add(LoadPatientById(widget.patientId));
-        } else if (state is PatientError) {
-          AppSnackbar.error(context, state.message);
-        }
-      },
-      builder: (context, state) {
-        if (state is PatientLoading) {
-          return const Scaffold(body: Center(child: CircularProgressIndicator()));
-        }
-        if (state is PatientLoaded) {
-          return _buildContent(state.patient);
-        }
-        return const Scaffold(body: Center(child: Text('تعذر تحميل بيانات المريض')));
-      },
-    );
+    final state = ref.watch(patientProvider);
+
+    ref.listen<PatientState>(patientProvider, (previous, next) {
+      if (next is PatientOperationSuccess) {
+        AppSnackbar.success(context, next.message);
+        ref.read(patientProvider.notifier).loadPatientById(widget.patientId);
+      } else if (next is PatientError) {
+        AppSnackbar.error(context, next.message);
+      }
+    });
+
+    if (state is PatientLoading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    if (state is PatientLoaded) {
+      return _buildContent(state.patient);
+    }
+    return const Scaffold(body: Center(child: Text('تعذر تحميل بيانات المريض')));
   }
 
   Widget _buildContent(PatientModel patient) {
@@ -170,7 +171,7 @@ class _PatientProfileScreenState extends State<PatientProfileScreen>
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
             onPressed: () {
               Navigator.pop(context);
-              context.read<PatientBloc>().add(DeletePatient(patient.id));
+              ref.read(patientProvider.notifier).deletePatient(patient.id);
               context.go(AppConstants.routePatientList);
             },
             child: const Text('حذف'),
