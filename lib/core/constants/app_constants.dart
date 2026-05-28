@@ -44,6 +44,7 @@ class AppConstants {
   static const String routeSafetyTips       = '/safety-tips';
   static const String routeFailedOps        = '/failed-ops';
   static const String routeDoctorProfile    = '/doctor/profile';
+  static const String routeUpdatePassword   = '/update-password';
 
   // ─── Blood Types ─────────────────────────────────────────────────────────────
   static const List<String> bloodTypes = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];

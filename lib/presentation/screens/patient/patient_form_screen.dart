@@ -338,7 +338,7 @@ class _PatientFormScreenState extends ConsumerState<PatientFormScreen> {
         Text('فصيلة الدم', style: AppTextStyles.labelLarge),
         const SizedBox(height: 6),
         DropdownButtonFormField<String>(
-          value: _bloodType,
+          initialValue: _bloodType,
           decoration: const InputDecoration(prefixIcon: Icon(Icons.bloodtype_outlined)),
           hint: const Text('اختر فصيلة الدم'),
           items: AppConstants.bloodTypes.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),

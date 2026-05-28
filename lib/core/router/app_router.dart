@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/constants/app_constants.dart';
 
@@ -8,6 +9,7 @@ import '../../presentation/screens/welcome/welcome_screen.dart';
 import '../../presentation/screens/auth/login_screen.dart';
 import '../../presentation/screens/auth/register_screen.dart';
 import '../../presentation/screens/auth/forgot_password_screen.dart';
+import '../../presentation/screens/auth/update_password_screen.dart';
 import '../../presentation/screens/doctor/doctor_dashboard_screen.dart';
 import '../../presentation/screens/doctor/doctor_profile_screen.dart';
 import '../../presentation/screens/patient/patient_dashboard_screen.dart';
@@ -25,6 +27,16 @@ import '../../presentation/screens/admin/admin_dashboard_screen.dart';
 import '../../presentation/screens/safety/safety_tips_screen.dart';
 import '../../presentation/screens/failed_ops/failed_operations_screen.dart';
 import '../../presentation/screens/pdf/pdf_report_screen.dart';
+
+// ─── Password-recovery deep-link handling ────────────────────────────────────
+// Call this once after Supabase.initialize() to intercept the recovery event.
+void setupAuthRedirectListener(GoRouter router) {
+  Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+    if (data.event == AuthChangeEvent.passwordRecovery) {
+      router.go(AppConstants.routeUpdatePassword);
+    }
+  });
+}
 
 final GoRouter appRouter = GoRouter(
   initialLocation: AppConstants.routeSplash,
@@ -49,6 +61,10 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: AppConstants.routeForgotPassword,
       builder: (_, __) => const ForgotPasswordScreen(),
+    ),
+    GoRoute(
+      path: AppConstants.routeUpdatePassword,
+      builder: (_, __) => const UpdatePasswordScreen(),
     ),
 
     // ── Doctor ────────────────────────────────────────────────────────────────

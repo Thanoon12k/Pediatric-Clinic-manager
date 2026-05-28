@@ -123,10 +123,7 @@ class _MedicationsScreenState extends ConsumerState<MedicationsScreen> {
       context: ctx,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (_) => ProviderScope(
-        parent: ProviderScope.containerOf(ctx),
-        child: _AddMedicationSheet(doctorId: _doctorId ?? ''),
-      ),
+      builder: (_) => _AddMedicationSheet(doctorId: _doctorId ?? ''),
     );
   }
 }

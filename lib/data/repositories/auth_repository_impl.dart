@@ -18,5 +18,6 @@ class AuthRepositoryImpl implements AuthRepository {
 
   @override Future<void> signOut() => _ds.signOut();
   @override Future<void> sendPasswordResetEmail(String email) => _ds.sendPasswordResetEmail(email);
+  @override Future<void> updatePassword(String newPassword) => _ds.updatePassword(newPassword);
   @override Stream<UserModel?> get authStateChanges => _ds.authStateChanges;
 }

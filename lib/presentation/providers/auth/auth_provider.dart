@@ -99,6 +99,16 @@ class AuthNotifier extends StateNotifier<AuthBlocState> {
       state = AuthError(e.toString());
     }
   }
+
+  Future<void> updatePassword(String newPassword) async {
+    state = AuthLoading();
+    try {
+      await _repo.updatePassword(newPassword);
+      state = AuthPasswordResetSent(); // reuse "done" state — screen will navigate away
+    } catch (e) {
+      state = AuthError(e.toString());
+    }
+  }
 }
 
 // ─── Provider ────────────────────────────────────────────────────────────────

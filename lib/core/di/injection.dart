@@ -35,15 +35,6 @@ import '../../domain/repositories/message_repository.dart';
 import '../../domain/repositories/media_repository.dart';
 import '../../domain/repositories/doctor_repository.dart';
 
-// BLoCs
-import '../../presentation/blocs/auth/auth_bloc.dart';
-import '../../presentation/blocs/patient/patient_bloc.dart';
-import '../../presentation/blocs/appointment/appointment_bloc.dart';
-import '../../presentation/blocs/examination/examination_bloc.dart';
-import '../../presentation/blocs/vaccination/vaccination_bloc.dart';
-import '../../presentation/blocs/medication/medication_bloc.dart';
-import '../../presentation/blocs/message/message_bloc.dart';
-import '../../presentation/blocs/doctor/doctor_bloc.dart';
 
 final GetIt getIt = GetIt.instance;
 
@@ -82,13 +73,4 @@ Future<void> setupInjection() async {
   getIt.registerLazySingleton<DoctorRepository>(
       () => DoctorRepositoryImpl(getIt<DoctorDataSource>()));
 
-  // ── BLoCs (factories — new instance per use) ─────────────────────────────────
-  getIt.registerFactory<AuthBloc>(() => AuthBloc(getIt<AuthRepository>()));
-  getIt.registerFactory<PatientBloc>(() => PatientBloc(getIt<PatientRepository>()));
-  getIt.registerFactory<AppointmentBloc>(() => AppointmentBloc(getIt<AppointmentRepository>()));
-  getIt.registerFactory<ExaminationBloc>(() => ExaminationBloc(getIt<ExaminationRepository>()));
-  getIt.registerFactory<VaccinationBloc>(() => VaccinationBloc(getIt<VaccinationRepository>()));
-  getIt.registerFactory<MedicationBloc>(() => MedicationBloc(getIt<MedicationRepository>()));
-  getIt.registerFactory<MessageBloc>(() => MessageBloc(getIt<MessageRepository>()));
-  getIt.registerFactory<DoctorBloc>(() => DoctorBloc(getIt<DoctorRepository>()));
 }

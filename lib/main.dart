@@ -45,6 +45,9 @@ Future<void> main() async {
     ),
   );
 
+  // Handle password-reset deep links (fires AuthChangeEvent.passwordRecovery)
+  setupAuthRedirectListener(appRouter);
+
   runApp(
     const ProviderScope(
       child: YadatiApp(),

@@ -6,5 +6,6 @@ abstract class AuthRepository {
   Future<UserModel> signUp({required String email, required String password, required String fullName, String role = 'patient'});
   Future<void> signOut();
   Future<void> sendPasswordResetEmail(String email);
+  Future<void> updatePassword(String newPassword);
   Stream<UserModel?> get authStateChanges;
 }

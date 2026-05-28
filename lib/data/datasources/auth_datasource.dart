@@ -10,6 +10,7 @@ abstract class AuthDataSource {
   });
   Future<void> signOut();
   Future<void> sendPasswordResetEmail(String email);
+  Future<void> updatePassword(String newPassword);
   Stream<UserModel?> get authStateChanges;
 }
 
@@ -73,6 +74,11 @@ class AuthDataSourceImpl implements AuthDataSource {
   @override
   Future<void> sendPasswordResetEmail(String email) async =>
       await _client.auth.resetPasswordForEmail(email);
+
+  @override
+  Future<void> updatePassword(String newPassword) async {
+    await _client.auth.updateUser(UserAttributes(password: newPassword));
+  }
 
   @override
   Stream<UserModel?> get authStateChanges {
