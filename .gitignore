@@ -44,6 +44,7 @@ app.*.map.json
 /web/
 
 # Environment / Secrets — NEVER COMMIT THESE
+/auth
 .env
 .env.*
 !.env.example
