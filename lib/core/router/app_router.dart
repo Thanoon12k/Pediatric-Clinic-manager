@@ -17,6 +17,7 @@ import '../../presentation/screens/patient/patient_list_screen.dart';
 import '../../presentation/screens/patient/patient_profile_screen.dart';
 import '../../presentation/screens/patient/patient_form_screen.dart';
 import '../../presentation/screens/appointment/appointments_screen.dart';
+import '../../presentation/screens/appointment/guardian_appointments_screen.dart';
 import '../../presentation/screens/examination/examinations_screen.dart';
 import '../../presentation/screens/vaccination/vaccinations_screen.dart';
 import '../../presentation/screens/charts/charts_screen.dart';
@@ -115,6 +116,11 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: AppConstants.routeAppointmentBook,
       builder: (_, __) => const BookAppointmentScreen(),
+    ),
+
+    GoRoute(
+      path: '/my-appointments',
+      builder: (_, __) => const GuardianAppointmentsScreen(),
     ),
 
     // ── Examinations ──────────────────────────────────────────────────────────
