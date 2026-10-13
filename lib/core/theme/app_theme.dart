@@ -42,13 +42,13 @@ class AppTheme {
       scaffoldBackgroundColor: canvas,
       appBarTheme: AppBarTheme(
         scrolledUnderElevation: 0,
-        backgroundColor: canvas,
-        foregroundColor: foreground,
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
         elevation: 0,
         centerTitle: false,
-        iconTheme: IconThemeData(color: foreground),
+        iconTheme: const IconThemeData(color: Colors.white),
         titleTextStyle: GoogleFonts.tajawal(
-          color: foreground, fontSize: 21, fontWeight: FontWeight.w700),
+          color: Colors.white, fontSize: 21, fontWeight: FontWeight.w700),
       ),
       cardTheme: CardThemeData(
         color: surface,
