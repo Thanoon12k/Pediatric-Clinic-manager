@@ -25,7 +25,7 @@ class PatientListTile extends StatelessWidget {
               backgroundColor: AppColors.primaryContainer,
               foregroundImage: patient.avatarUrl == null || patient.avatarUrl!.isEmpty
                   ? null : NetworkImage(patient.avatarUrl!),
-              child: Text(name.isEmpty ? 'ط' : name.characters.first,
+              child: Text(name.isEmpty ? 'ط' : name.substring(0, 1),
                 style: AppTextStyles.titleMedium.copyWith(color: AppColors.primaryDark)),
             ),
             const SizedBox(width: 12),
