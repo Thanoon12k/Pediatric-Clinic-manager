@@ -200,3 +200,30 @@ end;
 $$;
 revoke all on function public.available_appointment_slots(uuid, date) from public;
 grant execute on function public.available_appointment_slots(uuid, date) to authenticated;
+
+
+-- Only a conversation participant may mark the OTHER participant's
+-- messages as read. Do not grant direct client UPDATE on messages.
+create or replace function public.mark_conversation_read(p_conversation_id uuid)
+returns void
+language plpgsql security definer set search_path = ''
+as $$
+begin
+  if auth.uid() is null or not exists (
+    select 1 from public.conversations c
+     where c.id = p_conversation_id
+       and (c.patient_id = auth.uid()
+         or exists (select 1 from public.doctors d
+           where d.id = c.doctor_id and d.user_id = auth.uid()))
+  ) then
+    raise exception 'Conversation access denied';
+  end if;
+  update public.messages
+     set is_read = true
+   where conversation_id = p_conversation_id
+     and sender_id <> auth.uid()
+     and is_read = false;
+end;
+$$;
+revoke all on function public.mark_conversation_read(uuid) from public;
+grant execute on function public.mark_conversation_read(uuid) to authenticated;
