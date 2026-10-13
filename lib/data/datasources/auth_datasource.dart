@@ -55,7 +55,7 @@ class AuthDataSourceImpl implements AuthDataSource {
   }) async {
     final response = await _client.auth.signUp(
       email: email, password: password,
-      data: {'full_name': fullName, 'role': role.name},
+      data: {'full_name': fullName}, // Privileged roles are never client-assigned.
     );
     if (response.user == null) throw Exception('فشل إنشاء الحساب');
     // Profile is created via trigger; wait briefly then fetch
