@@ -24,7 +24,7 @@ class PatientDashboardScreen extends ConsumerWidget {
       _GuardianAction('حجز موعد', 'احجز زيارة لطفلك', Icons.edit_calendar_outlined,
           AppConstants.routeAppointmentBook),
       _GuardianAction('مواعيدي', 'تابع الزيارات القادمة', Icons.event_note_outlined,
-          AppConstants.routeAppointments),
+          '/my-appointments'),
       _GuardianAction('رسائل الطبيب', 'تواصل مع العيادة', Icons.chat_bubble_outline_rounded,
           AppConstants.routeMessages),
       _GuardianAction('إرشادات صحية', 'نصائح للعناية بالأطفال', Icons.health_and_safety_outlined,
