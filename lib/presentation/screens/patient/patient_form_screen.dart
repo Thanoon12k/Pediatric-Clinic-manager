@@ -138,7 +138,11 @@ class _PatientFormScreenState extends ConsumerState<PatientFormScreen> {
       }
       if (next is PatientOperationSuccess) {
         AppSnackbar.success(context, next.message);
-        context.go(AppConstants.routePatientList);
+        if (context.canPop()) {
+          context.pop();
+        } else {
+          context.go(AppConstants.routePatientList);
+        }
       }
       if (next is PatientError) AppSnackbar.error(context, next.message);
     });
@@ -163,7 +167,7 @@ class _PatientFormScreenState extends ConsumerState<PatientFormScreen> {
         actions: [
           TextButton(
             onPressed: state is PatientLoading ? null : _submit,
-            child: const Text('حفظ', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            child: const Text('حفظ', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
       ),
