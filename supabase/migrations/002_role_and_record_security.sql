@@ -131,7 +131,7 @@ create policy "messages_insert" on public.messages
 create policy "doctors_linked_guardian_read" on public.doctors
   for select to authenticated using (
     is_active and exists (select 1 from public.patients p
-      where p.doctor_id = id and p.user_id = (select auth.uid()))
+      where p.doctor_id = public.doctors.id and p.user_id = (select auth.uid()))
   );
 
 -- Limit the appointment conflict check to non-cancelled appointments.
