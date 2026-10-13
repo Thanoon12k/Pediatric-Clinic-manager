@@ -15,6 +15,15 @@ Flutter + Supabase pediatric clinic system for doctors, patients and clinic admi
 
 Existing functionality and data models remain in place; Supabase records are **not modified** by the redesign.
 
+## Required database security update
+
+After taking a backup and validating on a staging Supabase project, apply:
+`supabase/migrations/002_role_and_record_security.sql`.
+
+The migration blocks self-assigned privileged roles, allows guardians to read only their linked children's data, adds a server-side safe availability service, prevents two active appointments in the same slot, and secures message read receipts.
+
+**Important:** Public guardian registration creates a patient account. Clinic staff must link the guardian's `auth.users.id` to `patients.user_id` for each child before online booking works. Existing admins and doctors retain their roles. The unique appointment index requires resolving any existing duplicate non-cancelled slots first. Do not deploy a backend-connected APK to a clinical production database until this migration is tested and applied.
+
 ## Configure backend before release
 
 An installable APK may build without credentials, but it displays a configuration screen until the **public** Supabase URL and anon/publishable key are set. Never put the `service_role` key in the app.
