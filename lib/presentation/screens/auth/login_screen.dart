@@ -40,6 +40,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         switch (next.user.role) {
           case UserRole.admin:   context.go(AppConstants.routeAdminDashboard); break;
           case UserRole.doctor:  context.go(AppConstants.routeDoctorDashboard); break;
+          case UserRole.secretary: context.go(AppConstants.routeClinicQueue); break;
           case UserRole.patient: context.go(AppConstants.routePatientDashboard); break;
         }
       } else if (next is AuthError) {
