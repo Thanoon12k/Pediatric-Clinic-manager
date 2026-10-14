@@ -20,7 +20,8 @@ language plpgsql set search_path = ''
 as $
 begin
   if new.role is distinct from old.role
-     and current_user not in ('postgres', 'service_role') then
+     and session_user <> 'postgres'
+     and current_user <> 'service_role' then
     raise exception 'Profile role changes require a trusted server';
   end if;
   return new;
