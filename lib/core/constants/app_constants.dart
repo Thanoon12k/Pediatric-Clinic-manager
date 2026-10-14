@@ -45,6 +45,8 @@ class AppConstants {
   static const String routeFailedOps        = '/failed-ops';
   static const String routeDoctorProfile    = '/doctor/profile';
   static const String routeUpdatePassword   = '/update-password';
+  // App-owned deep link for Supabase PKCE password recovery on Android.
+  static const String passwordRecoveryRedirect = 'com.thanoon.yadati://login-callback/';
 
   // ─── Blood Types ─────────────────────────────────────────────────────────────
   static const List<String> bloodTypes = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
