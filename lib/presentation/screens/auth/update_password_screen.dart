@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_constants.dart';
+import '../../../core/config/auth_recovery_state.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../providers/auth/auth_provider.dart';
@@ -41,6 +42,7 @@ class _UpdatePasswordScreenState extends ConsumerState<UpdatePasswordScreen> {
 
     ref.listen<AuthBlocState>(authProvider, (previous, next) {
       if (next is AuthPasswordResetSent) {
+        AuthRecoveryState.active = false;
         AppSnackbar.success(context, 'تم تغيير كلمة المرور بنجاح! يرجى تسجيل الدخول.');
         context.go(AppConstants.routeLogin);
       }

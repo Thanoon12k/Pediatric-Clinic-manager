@@ -20,11 +20,15 @@ class MessageDataSourceImpl implements MessageDataSource {
 
   @override
   Future<List<ConversationModel>> getConversations(String userId) async {
-    final data = await _client
-        .from('conversations')
-        .select()
-        .or('patient_id.eq.$userId,doctor_id.eq.$userId')
-        .order('last_message_at', ascending: false);
+    // conversations.doctor_id is a doctor record UUID, not auth.users.id.
+    final doctor = await _client
+        .from('doctors').select('id').eq('user_id', userId).maybeSingle();
+    final query = _client.from('conversations').select();
+    final data = doctor != null
+        ? await query.eq('doctor_id', doctor['id'] as String)
+            .order('last_message_at', ascending: false)
+        : await query.eq('patient_id', userId)
+            .order('last_message_at', ascending: false);
     return data.map((e) => ConversationModel.fromJson(e)).toList();
   }
 
@@ -88,11 +92,8 @@ class MessageDataSourceImpl implements MessageDataSource {
 
   @override
   Future<void> markAsRead(String conversationId, String userId) async {
-    await _client
-        .from(AppConstants.tableMessages)
-        .update({'is_read': true})
-        .eq('conversation_id', conversationId)
-        .neq('sender_id', userId)
-        .eq('is_read', false);
+    // A server function updates read receipts only for the actual recipient.
+    await _client.rpc('mark_conversation_read',
+        params: {'p_conversation_id': conversationId});
   }
 }

@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../data/models/user_model.dart';
+import '../../core/constants/app_constants.dart';
 
 abstract class AuthDataSource {
   Future<UserModel?> getCurrentUser();
@@ -36,8 +37,12 @@ class AuthDataSourceImpl implements AuthDataSource {
 
   @override
   Future<UserModel> signIn({required String email, required String password}) async {
+    final credential = email.trim();
+    final emailForAuth = credential.contains('@')
+        ? credential
+        : '${credential.toLowerCase()}@staff.yadati.invalid';
     final response = await _client.auth.signInWithPassword(
-      email: email, password: password,
+      email: emailForAuth, password: password,
     );
     if (response.user == null) throw Exception('فشل تسجيل الدخول');
     final data = await _client
@@ -45,7 +50,7 @@ class AuthDataSourceImpl implements AuthDataSource {
         .select()
         .eq('id', response.user!.id)
         .single();
-    return UserModel.fromJson({...data, 'email': email});
+    return UserModel.fromJson({...data, 'email': response.user!.email ?? emailForAuth});
   }
 
   @override
@@ -55,7 +60,7 @@ class AuthDataSourceImpl implements AuthDataSource {
   }) async {
     final response = await _client.auth.signUp(
       email: email, password: password,
-      data: {'full_name': fullName, 'role': role.name},
+      data: {'full_name': fullName}, // Privileged roles are never client-assigned.
     );
     if (response.user == null) throw Exception('فشل إنشاء الحساب');
     // Profile is created via trigger; wait briefly then fetch
@@ -73,7 +78,8 @@ class AuthDataSourceImpl implements AuthDataSource {
 
   @override
   Future<void> sendPasswordResetEmail(String email) async =>
-      await _client.auth.resetPasswordForEmail(email);
+      await _client.auth.resetPasswordForEmail(
+        email, redirectTo: AppConstants.passwordRecoveryRedirect);
 
   @override
   Future<void> updatePassword(String newPassword) async {

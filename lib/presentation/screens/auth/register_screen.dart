@@ -20,7 +20,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _passCtrl  = TextEditingController();
   final _confCtrl  = TextEditingController();
   bool _obscure = true;
-  String _role = 'patient';
 
   @override
   void dispose() {
@@ -39,7 +38,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       email: _emailCtrl.text.trim(),
       password: _passCtrl.text,
       fullName: _nameCtrl.text.trim(),
-      role: _role,
+      role: 'patient',
     );
   }
 
@@ -66,15 +65,27 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           key: _formKey,
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             const SizedBox(height: 8),
-            Text('نوع الحساب', style: AppTextStyles.labelLarge),
-            const SizedBox(height: 8),
-            Row(children: [
-              Expanded(child: _RoleBtn(label: 'مريض / ولي أمر', icon: Icons.family_restroom_rounded,
-                  selected: _role == 'patient', onTap: () => setState(() => _role = 'patient'))),
-              const SizedBox(width: 12),
-              Expanded(child: _RoleBtn(label: 'طبيب', icon: Icons.medical_services_rounded,
-                  selected: _role == 'doctor', onTap: () => setState(() => _role = 'doctor'))),
-            ]).animate().fadeIn(),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(children: [
+                  const CircleAvatar(
+                    backgroundColor: AppColors.primaryContainer,
+                    child: Icon(Icons.family_restroom_rounded, color: AppColors.primary),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('إنشاء حساب ولي أمر', style: AppTextStyles.titleSmall),
+                      const SizedBox(height: 4),
+                      Text('حساب الطبيب يتم تفعيله بواسطة إدارة العيادة لحماية ملفات المرضى.',
+                        style: AppTextStyles.bodySmall),
+                    ],
+                  )),
+                ]),
+              ),
+            ),
             const SizedBox(height: 20),
             TextFormField(
               controller: _nameCtrl,
@@ -131,25 +142,3 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   }
 }
 
-class _RoleBtn extends StatelessWidget {
-  final String label; final IconData icon; final bool selected; final VoidCallback onTap;
-  const _RoleBtn({required this.label, required this.icon, required this.selected, required this.onTap});
-  @override
-  Widget build(BuildContext context) => InkWell(
-    onTap: onTap,
-    borderRadius: BorderRadius.circular(12),
-    child: Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: selected ? AppColors.primaryContainer : Colors.grey.shade50,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: selected ? AppColors.primary : AppColors.border, width: selected ? 2 : 1),
-      ),
-      child: Column(children: [
-        Icon(icon, color: selected ? AppColors.primary : AppColors.textSecondary, size: 28),
-        const SizedBox(height: 8),
-        Text(label, style: AppTextStyles.labelLarge.copyWith(color: selected ? AppColors.primary : AppColors.textSecondary), textAlign: TextAlign.center),
-      ]),
-    ),
-  );
-}

@@ -12,16 +12,31 @@ import '../../providers/message/message_provider.dart';
 import '../../widgets/app_snackbar.dart';
 
 // ─── Messages List Screen ────────────────────────────────────────────────────
-class MessagesScreen extends ConsumerWidget {
+class MessagesScreen extends ConsumerStatefulWidget {
   const MessagesScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final userId = Supabase.instance.client.auth.currentUser?.id ?? '';
-    Future.microtask(() {
-      ref.read(messageProvider.notifier).loadConversations(userId);
-    });
+  ConsumerState<MessagesScreen> createState() => _MessagesScreenState();
+}
 
+class _MessagesScreenState extends ConsumerState<MessagesScreen> {
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(_reload);
+  }
+
+  void _reload() {
+    if (!mounted) return;
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId != null) {
+      ref.read(messageProvider.notifier).loadConversations(userId);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final userId = Supabase.instance.client.auth.currentUser?.id ?? '';
     final state = ref.watch(messageProvider);
 
     return Scaffold(
@@ -42,7 +57,7 @@ class MessagesScreen extends ConsumerWidget {
               itemCount: state.conversations.length,
               itemBuilder: (context, i) {
                 final conv = state.conversations[i];
-                final recipientName = conv.doctorName;
+                final recipientName = conv.patientId == userId ? conv.doctorName : conv.patientName;
                 return Card(
                   margin: const EdgeInsets.only(bottom: 10),
                   child: ListTile(
@@ -57,11 +72,26 @@ class MessagesScreen extends ConsumerWidget {
                         : conv.lastMessageAt != null
                             ? Text(timeago.format(conv.lastMessageAt!, locale: 'ar'), style: AppTextStyles.labelSmall)
                             : null,
-                    onTap: () => context.go('/chat/${conv.id}', extra: {'recipientName': recipientName}),
+                    onTap: () async {
+                      await context.push('/chat/${conv.id}', extra: {'recipientName': recipientName});
+                      _reload();
+                    },
                   ),
                 ).animate(delay: Duration(milliseconds: i * 60)).fadeIn().slideX(begin: 0.2);
               },
             );
+          }
+          if (state is MessageError) {
+            return Center(child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.wifi_off_rounded, size: 42, color: AppColors.primary),
+                const SizedBox(height: 12),
+                const Text('تعذر تحميل المحادثات'),
+                const SizedBox(height: 8),
+                TextButton(onPressed: _reload, child: const Text('إعادة المحاولة')),
+              ],
+            ));
           }
           return const SizedBox.shrink();
         },

@@ -40,6 +40,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         switch (next.user.role) {
           case UserRole.admin:   context.go(AppConstants.routeAdminDashboard); break;
           case UserRole.doctor:  context.go(AppConstants.routeDoctorDashboard); break;
+          case UserRole.secretary: context.go(AppConstants.routeClinicQueue); break;
           case UserRole.patient: context.go(AppConstants.routePatientDashboard); break;
         }
       } else if (next is AuthError) {
@@ -79,8 +80,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       controller: _emailCtrl,
                       keyboardType: TextInputType.emailAddress,
                       textDirection: TextDirection.ltr,
-                      decoration: const InputDecoration(labelText: 'البريد الإلكتروني', prefixIcon: Icon(Icons.email_outlined)),
-                      validator: (v) => (v == null || !v.contains('@')) ? 'بريد إلكتروني غير صحيح' : null,
+                      decoration: const InputDecoration(labelText: 'البريد الإلكتروني أو اسم المستخدم', prefixIcon: Icon(Icons.email_outlined)),
+                      validator: (v) {
+                        final value = (v ?? '').trim().toLowerCase();
+                        final isEmail = value.contains('@') && value.indexOf('@') > 0;
+                        final isUsername = RegExp(r'^[a-z][a-z0-9_]{3,23}$').hasMatch(value);
+                        return isEmail || isUsername ? null
+                            : 'أدخل البريد الإلكتروني أو اسم مستخدم صحيح';
+                      },
                     ),
                     const SizedBox(height: 16),
                     TextFormField(

@@ -83,38 +83,13 @@ class AppointmentDataSourceImpl implements AppointmentDataSource {
     required String doctorId,
     required DateTime date,
   }) async {
-    // Get doctor settings
-    final doctorData = await _client
-        .from(AppConstants.tableDoctors)
-        .select('work_start_time, work_end_time, appointment_duration_minutes')
-        .eq('id', doctorId)
-        .single();
-    final doctor = DoctorModel.fromJson({...doctorData, 'id': doctorId, 'user_id': '', 'full_name': '', 'created_at': DateTime.now().toIso8601String()});
-
-    // Get booked slots for that day
-    final dateStr = date.toIso8601String().split('T').first;
-    final bookedData = await _client
-        .from(AppConstants.tableAppointments)
-        .select('appointment_time')
-        .eq('doctor_id', doctorId)
-        .eq('appointment_date', dateStr)
-        .neq('status', 'cancelled');
-    final booked = bookedData.map((e) => e['appointment_time'] as String).toSet();
-
-    // Generate slots
-    final slots = <String>[];
-    final startParts = doctor.workStartTime.split(':');
-    final endParts = doctor.workEndTime.split(':');
-    var current = DateTime(date.year, date.month, date.day,
-        int.parse(startParts[0]), int.parse(startParts[1]));
-    final end = DateTime(date.year, date.month, date.day,
-        int.parse(endParts[0]), int.parse(endParts[1]));
-
-    while (current.isBefore(end)) {
-      final timeStr = '${current.hour.toString().padLeft(2, '0')}:${current.minute.toString().padLeft(2, '0')}';
-      if (!booked.contains(timeStr)) slots.add(timeStr);
-      current = current.add(Duration(minutes: doctor.appointmentDurationMinutes));
-    }
-    return slots;
+    final day = '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+    // Server-authoritative: never expose other patients' appointment rows.
+    final result = await _client.rpc('available_appointment_slots', params: {
+      'p_doctor_id': doctorId,
+      'p_date': day,
+    });
+    return (result as List<dynamic>).map((row) =>
+      (row as Map<String, dynamic>)['slot'] as String).toList();
   }
 }

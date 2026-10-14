@@ -4,7 +4,7 @@ class AppConstants {
   // ─── App ────────────────────────────────────────────────────────────────────
   static const String appName        = 'عيادتي';
   static const String appNameEn      = 'Yadati';
-  static const String appVersion     = '1.0.0';
+  static const String appVersion     = '1.3.0';
 
   // ─── Supabase Tables ────────────────────────────────────────────────────────
   static const String tableProfiles     = 'profiles';
@@ -40,11 +40,15 @@ class AppConstants {
   static const String routeAppointmentBook  = '/appointments/book';
   static const String routeMessages         = '/messages';
   static const String routeSettings         = '/settings';
+  static const String routeClinicQueue      = '/clinic/queue';
+  static const String routeStaffAccounts    = '/staff/accounts';
   static const String routeMedications      = '/medications';
   static const String routeSafetyTips       = '/safety-tips';
   static const String routeFailedOps        = '/failed-ops';
   static const String routeDoctorProfile    = '/doctor/profile';
   static const String routeUpdatePassword   = '/update-password';
+  // App-owned deep link for Supabase PKCE password recovery on Android.
+  static const String passwordRecoveryRedirect = 'com.thanoon.yadati://login-callback/';
 
   // ─── Blood Types ─────────────────────────────────────────────────────────────
   static const List<String> bloodTypes = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];

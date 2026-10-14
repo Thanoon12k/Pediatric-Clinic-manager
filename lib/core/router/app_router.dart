@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/constants/app_constants.dart';
+import '../../core/config/auth_recovery_state.dart';
 
 import '../../presentation/screens/splash/splash_screen.dart';
 import '../../presentation/screens/welcome/welcome_screen.dart';
@@ -11,12 +12,15 @@ import '../../presentation/screens/auth/register_screen.dart';
 import '../../presentation/screens/auth/forgot_password_screen.dart';
 import '../../presentation/screens/auth/update_password_screen.dart';
 import '../../presentation/screens/doctor/doctor_dashboard_screen.dart';
+import '../../presentation/screens/secretary/clinic_queue_screen.dart';
+import '../../presentation/screens/staff/staff_accounts_screen.dart';
 import '../../presentation/screens/doctor/doctor_profile_screen.dart';
 import '../../presentation/screens/patient/patient_dashboard_screen.dart';
 import '../../presentation/screens/patient/patient_list_screen.dart';
 import '../../presentation/screens/patient/patient_profile_screen.dart';
 import '../../presentation/screens/patient/patient_form_screen.dart';
 import '../../presentation/screens/appointment/appointments_screen.dart';
+import '../../presentation/screens/appointment/guardian_appointments_screen.dart';
 import '../../presentation/screens/examination/examinations_screen.dart';
 import '../../presentation/screens/vaccination/vaccinations_screen.dart';
 import '../../presentation/screens/charts/charts_screen.dart';
@@ -33,8 +37,11 @@ import '../../presentation/screens/pdf/pdf_report_screen.dart';
 void setupAuthRedirectListener(GoRouter router) {
   Supabase.instance.client.auth.onAuthStateChange.listen((data) {
     if (data.event == AuthChangeEvent.passwordRecovery) {
+      AuthRecoveryState.active = true;
       router.go(AppConstants.routeUpdatePassword);
     }
+  }, onError: (Object error, StackTrace trace) {
+    // Transient auth/refresh errors must not crash the clinic application.
   });
 }
 
@@ -84,7 +91,14 @@ final GoRouter appRouter = GoRouter(
     ),
     GoRoute(
       path: '/doctor/patients/add',
-      builder: (_, __) => const PatientFormScreen(),
+      builder: (_, state) {
+        final extra = state.extra;
+        final source = extra is Map<String, dynamic> ? extra : null;
+        return PatientFormScreen(
+          queueId: source?['queueId'] as String?,
+          initialPatientName: source?['patientName'] as String?,
+        );
+      },
     ),
     GoRoute(
       path: '/doctor/patients/:id',
@@ -101,6 +115,17 @@ final GoRouter appRouter = GoRouter(
       builder: (_, __) => const PatientDashboardScreen(),
     ),
 
+    // ── Reception queue: doctor + one assigned secretary only ──────────
+    GoRoute(
+      path: AppConstants.routeClinicQueue,
+      builder: (_, __) => const ClinicQueueScreen(),
+    ),
+
+    GoRoute(
+      path: AppConstants.routeStaffAccounts,
+      builder: (_, __) => const StaffAccountsScreen(),
+    ),
+
     // ── Admin ─────────────────────────────────────────────────────────────────
     GoRoute(
       path: AppConstants.routeAdminDashboard,
@@ -115,6 +140,11 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: AppConstants.routeAppointmentBook,
       builder: (_, __) => const BookAppointmentScreen(),
+    ),
+
+    GoRoute(
+      path: '/my-appointments',
+      builder: (_, __) => const GuardianAppointmentsScreen(),
     ),
 
     // ── Examinations ──────────────────────────────────────────────────────────

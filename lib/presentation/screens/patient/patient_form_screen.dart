@@ -13,7 +13,10 @@ import '../../widgets/app_snackbar.dart';
 
 class PatientFormScreen extends ConsumerStatefulWidget {
   final String? patientId;
-  const PatientFormScreen({super.key, this.patientId});
+  final String? queueId;
+  final String? initialPatientName;
+  const PatientFormScreen({super.key, this.patientId,
+    this.queueId, this.initialPatientName});
 
   @override
   ConsumerState<PatientFormScreen> createState() => _PatientFormScreenState();
@@ -45,6 +48,9 @@ class _PatientFormScreenState extends ConsumerState<PatientFormScreen> {
   @override
   void initState() {
     super.initState();
+    if (!isEditing && widget.initialPatientName != null) {
+      _nameCtrl.text = widget.initialPatientName!;
+    }
     Future.microtask(() {
       _loadDoctorId();
       if (isEditing) {
@@ -137,8 +143,37 @@ class _PatientFormScreenState extends ConsumerState<PatientFormScreen> {
         _populateFromExisting(next.patient);
       }
       if (next is PatientOperationSuccess) {
-        AppSnackbar.success(context, next.message);
-        context.go(AppConstants.routePatientList);
+        // Linking is doctor-only on the server; this queue entry stays intact
+        // if the record is saved but the association RPC fails.
+        if (widget.queueId != null && next.recordId != null) {
+          Future<void>(() async {
+            try {
+              await Supabase.instance.client.rpc('link_clinic_queue_patient', params: {
+                'p_queue_id': widget.queueId,
+                'p_medical_patient_id': next.recordId,
+              });
+              if (!context.mounted) return;
+              AppSnackbar.success(context, 'تم إنشاء الملف الطبي وربطه بالطابور');
+            } catch (_) {
+              if (!context.mounted) return;
+              AppSnackbar.error(context,
+                'تم حفظ الملف الطبي، لكن تعذّر ربطه بالطابور. ستجده في قائمة المرضى.');
+            }
+            if (!context.mounted) return;
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go(AppConstants.routePatientList);
+            }
+          });
+        } else {
+          AppSnackbar.success(context, next.message);
+          if (context.canPop()) {
+            context.pop();
+          } else {
+            context.go(AppConstants.routePatientList);
+          }
+        }
       }
       if (next is PatientError) AppSnackbar.error(context, next.message);
     });
@@ -163,7 +198,7 @@ class _PatientFormScreenState extends ConsumerState<PatientFormScreen> {
         actions: [
           TextButton(
             onPressed: state is PatientLoading ? null : _submit,
-            child: const Text('حفظ', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            child: const Text('حفظ', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
       ),

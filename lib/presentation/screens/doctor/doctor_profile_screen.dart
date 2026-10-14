@@ -7,6 +7,7 @@ import '../../widgets/app_snackbar.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../data/models/doctor_model.dart';
 import 'package:uuid/uuid.dart';
+import 'package:image_picker/image_picker.dart';
 
 class DoctorProfileScreen extends ConsumerStatefulWidget {
   const DoctorProfileScreen({super.key});
@@ -21,6 +22,8 @@ class _DoctorProfileScreenState extends ConsumerState<DoctorProfileScreen> {
   final _licenseCtrl = TextEditingController();
   List<int> _availableDays = [1, 2, 3, 4, 6];
   DoctorModel? _existing;
+  String? _avatarUrl;
+  bool _uploadingAvatar = false;
 
   @override
   void initState() {
@@ -33,11 +36,70 @@ class _DoctorProfileScreenState extends ConsumerState<DoctorProfileScreen> {
 
   void _populate(DoctorModel doctor) {
     _existing = doctor;
+    _avatarUrl = doctor.avatarUrl;
     _nameCtrl.text = doctor.fullName;
     _specialtyCtrl.text = doctor.specialty ?? '';
     _phoneCtrl.text = doctor.phone ?? '';
     _licenseCtrl.text = doctor.licenseNumber ?? '';
     setState(() => _availableDays = List.from(doctor.availableDays));
+  }
+
+  Future<void> _chooseAvatar() async {
+    if (_uploadingAvatar) return;
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      builder: (sheetContext) => SafeArea(child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            leading: const Icon(Icons.photo_camera_outlined),
+            title: const Text('التقاط صورة بالكاميرا'),
+            onTap: () => Navigator.pop(sheetContext, ImageSource.camera),
+          ),
+          ListTile(
+            leading: const Icon(Icons.photo_library_outlined),
+            title: const Text('اختيار صورة من المعرض'),
+            onTap: () => Navigator.pop(sheetContext, ImageSource.gallery),
+          ),
+        ],
+      )),
+    );
+    if (source == null || !mounted) return;
+    try {
+      final selected = await ImagePicker().pickImage(
+        source: source, imageQuality: 75, maxWidth: 1000, maxHeight: 1000,
+      );
+      if (selected == null || !mounted) return;
+      final userId = Supabase.instance.client.auth.currentUser?.id;
+      if (userId == null) throw StateError('يرجى تسجيل الدخول.');
+      setState(() => _uploadingAvatar = true);
+      final bytes = await selected.readAsBytes();
+      if (bytes.length > 5 * 1024 * 1024) {
+        throw StateError('حجم الصورة أكبر من 5 ميغابايت.');
+      }
+      // Images always go to the current user's private write prefix.
+      final path = '$userId/doctor_avatar.jpg';
+      final bucket = Supabase.instance.client.storage.from('avatars');
+      await bucket.uploadBinary(
+        path, bytes,
+        fileOptions: const FileOptions(upsert: true, contentType: 'image/jpeg'),
+      );
+      final url = '${bucket.getPublicUrl(path)}?v=${DateTime.now().millisecondsSinceEpoch}';
+      // Persist independently of profile Save so tapping camera works directly.
+      await Supabase.instance.client.from('doctors')
+          .update({'avatar_url': url})
+          .eq('user_id', userId)
+          .select('id').single();
+      if (!mounted) return;
+      setState(() => _avatarUrl = url);
+      AppSnackbar.success(context, 'تم تحديث صورة الملف الشخصي');
+    } catch (error) {
+      if (!mounted) return;
+      AppSnackbar.error(context,
+        'تعذر رفع الصورة. تحقق من إذن الكاميرا واتصال الإنترنت.');
+    } finally {
+      if (mounted) setState(() => _uploadingAvatar = false);
+    }
   }
 
   @override
@@ -71,14 +133,30 @@ class _DoctorProfileScreenState extends ConsumerState<DoctorProfileScreen> {
                   CircleAvatar(
                     radius: 50,
                     backgroundColor: AppColors.primaryContainer,
-                    child: const Icon(Icons.person_rounded, size: 60, color: AppColors.primary),
+                    backgroundImage: _avatarUrl != null && _avatarUrl!.isNotEmpty
+                        ? NetworkImage(_avatarUrl!) : null,
+                    child: _avatarUrl == null || _avatarUrl!.isEmpty
+                        ? const Icon(Icons.person_rounded, size: 60, color: AppColors.primary)
+                        : null,
                   ),
                   Positioned(
                     bottom: 0, right: 0,
-                    child: CircleAvatar(
-                      radius: 16,
-                      backgroundColor: AppColors.primary,
-                      child: const Icon(Icons.camera_alt_rounded, size: 16, color: Colors.white),
+                    child: Material(
+                      color: AppColors.primary,
+                      shape: const CircleBorder(),
+                      child: InkWell(
+                        customBorder: const CircleBorder(),
+                        onTap: _uploadingAvatar ? null : _chooseAvatar,
+                        child: Padding(
+                          padding: const EdgeInsets.all(9),
+                          child: _uploadingAvatar
+                              ? const SizedBox(width: 16, height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2, color: Colors.white))
+                              : const Icon(Icons.camera_alt_rounded,
+                                  size: 19, color: Colors.white),
+                        ),
+                      ),
                     ),
                   ),
                 ],
@@ -131,6 +209,7 @@ class _DoctorProfileScreenState extends ConsumerState<DoctorProfileScreen> {
       specialty: _specialtyCtrl.text.trim().isEmpty ? null : _specialtyCtrl.text.trim(),
       phone: _phoneCtrl.text.trim().isEmpty ? null : _phoneCtrl.text.trim(),
       email: Supabase.instance.client.auth.currentUser?.email,
+      avatarUrl: _avatarUrl,
       licenseNumber: _licenseCtrl.text.trim().isEmpty ? null : _licenseCtrl.text.trim(),
       availableDays: _availableDays,
       createdAt: _existing?.createdAt ?? DateTime.now(),

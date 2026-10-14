@@ -1,11 +1,13 @@
-import 'package:flutter_dotenv/flutter_dotenv.dart';
-
+/// Public Supabase project configuration is passed at build time. Never place
+/// a service_role key or other privileged secret in a Flutter application.
 class EnvConfig {
   EnvConfig._();
 
-  static String get supabaseUrl =>
-      dotenv.env['SUPABASE_URL'] ?? '';
+  static const String supabaseUrl = String.fromEnvironment('SUPABASE_URL');
+  static const String supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
 
-  static String get supabaseAnonKey =>
-      dotenv.env['SUPABASE_ANON_KEY'] ?? '';
+  static bool get isConfigured =>
+      supabaseUrl.startsWith('https://') &&
+      supabaseUrl.contains('.supabase.co') &&
+      supabaseAnonKey.trim().isNotEmpty;
 }
