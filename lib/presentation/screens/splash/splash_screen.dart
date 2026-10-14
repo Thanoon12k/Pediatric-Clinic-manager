@@ -3,6 +3,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_constants.dart';
+import '../../../core/config/auth_recovery_state.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../data/models/user_model.dart';
@@ -25,6 +26,10 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     ref.listen<AuthBlocState>(authProvider, (previous, next) {
+      if (AuthRecoveryState.active) {
+        context.go(AppConstants.routeUpdatePassword);
+        return;
+      }
       if (next is AuthAuthenticated) {
         switch (next.user.role) {
           case UserRole.admin:   context.go(AppConstants.routeAdminDashboard); break;
