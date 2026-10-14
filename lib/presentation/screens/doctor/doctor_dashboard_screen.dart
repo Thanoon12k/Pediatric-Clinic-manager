@@ -80,6 +80,7 @@ class _DoctorDashboardScreenState extends ConsumerState<DoctorDashboardScreen> {
             children: [
               Text('جميع الأدوات', style: AppTextStyles.titleLarge),
               const SizedBox(height: 14),
+              _moreItem(sheetContext, 'إضافة سكرتير', Icons.person_add_alt_1_outlined, AppConstants.routeStaffAccounts),
               _moreItem(sheetContext, 'طابور المرضى', Icons.format_list_numbered_rtl_rounded, AppConstants.routeClinicQueue),
               _moreItem(sheetContext, 'المحادثات', Icons.chat_bubble_outline_rounded, AppConstants.routeMessages),
               _moreItem(sheetContext, 'الأدوية', Icons.medication_outlined, AppConstants.routeMedications),
@@ -244,6 +245,7 @@ class _DoctorDashboardScreenState extends ConsumerState<DoctorDashboardScreen> {
                 }),
                 _action('المواعيد', Icons.calendar_month_outlined, () => _selectPage(2)),
                 _action('طابور المرضى', Icons.format_list_numbered_rtl_rounded, () => context.push(AppConstants.routeClinicQueue)),
+                _action('إضافة سكرتير', Icons.support_agent_outlined, () => context.push(AppConstants.routeStaffAccounts)),
                 _action('المرضى', Icons.people_outline_rounded, () => _selectPage(1)),
                 _action('المحادثات', Icons.chat_outlined, () => context.push(AppConstants.routeMessages)),
                 _action('الأدوية', Icons.medication_outlined, () => context.push(AppConstants.routeMedications)),
