@@ -36,6 +36,8 @@ void setupAuthRedirectListener(GoRouter router) {
     if (data.event == AuthChangeEvent.passwordRecovery) {
       router.go(AppConstants.routeUpdatePassword);
     }
+  }, onError: (Object error, StackTrace trace) {
+    // Transient auth/refresh errors must not crash the clinic application.
   });
 }
 
