@@ -19,7 +19,7 @@ class ClinicQueueScreen extends ConsumerStatefulWidget {
 class _ClinicQueueScreenState extends ConsumerState<ClinicQueueScreen> {
   final _nameController = TextEditingController();
   final _client = Supabase.instance.client;
-  final _today = DateTime.now();
+  DateTime get _today => DateTime.now();
 
   List<Map<String, dynamic>> _queue = [];
   String? _doctorId;
@@ -90,6 +90,9 @@ class _ClinicQueueScreenState extends ConsumerState<ClinicQueueScreen> {
       if (error.code == 'PGRST202' || error.code == '42883') {
         return 'لم يتم تثبيت تحديث قاعدة البيانات رقم 003 بعد. اطلب من مسؤول العيادة تطبيقه أولاً.';
       }
+      if (error.code == '23505') {
+        return 'يوجد مريض داخل عند الطبيب حالياً، أنهِ زيارته أولاً.';
+      }
       if (error.code == '42501') {
         return 'ليس لديك صلاحية إدارة طابور هذا الطبيب.';
       }
@@ -130,19 +133,23 @@ class _ClinicQueueScreenState extends ConsumerState<ClinicQueueScreen> {
       return;
     }
     await _perform(
-      () async => _client.rpc('add_clinic_queue_patient', params: {
-        'p_doctor_id': _doctorId,
-        'p_patient_name': name,
-      }),
+      () async {
+        await _client.rpc('add_clinic_queue_patient', params: {
+          'p_doctor_id': _doctorId,
+          'p_patient_name': name,
+        });
+      },
       'تمت إضافة المريض إلى طابور اليوم',
     );
   }
 
   Future<void> _changeStatus(String queueId, String status) => _perform(
-    () async => _client.rpc('set_clinic_queue_status', params: {
-      'p_queue_id': queueId,
-      'p_status': status,
-    }),
+    () async {
+      await _client.rpc('set_clinic_queue_status', params: {
+        'p_queue_id': queueId,
+        'p_status': status,
+      });
+    },
     'تم تحديث حالة المريض',
   );
 
@@ -152,10 +159,12 @@ class _ClinicQueueScreenState extends ConsumerState<ClinicQueueScreen> {
     final item = ids.removeAt(from);
     ids.insert(to, item);
     await _perform(
-      () async => _client.rpc('reorder_clinic_queue', params: {
-        'p_doctor_id': _doctorId,
-        'p_ordered_ids': ids,
-      }),
+      () async {
+        await _client.rpc('reorder_clinic_queue', params: {
+          'p_doctor_id': _doctorId,
+          'p_ordered_ids': ids,
+        });
+      },
       'تم تعديل ترتيب الطابور',
     );
   }
@@ -375,7 +384,9 @@ class _ClinicQueueScreenState extends ConsumerState<ClinicQueueScreen> {
                                     controller: _nameController,
                                     maxLength: 100,
                                     textInputAction: TextInputAction.done,
-                                    onSubmitted: (_) => _busy ? null : _addPatient(),
+                                    onSubmitted: (_) {
+                                      if (!_busy) _addPatient();
+                                    },
                                     decoration: const InputDecoration(
                                       labelText: 'اسم المريض',
                                       prefixIcon: Icon(Icons.person_add_alt_1_outlined),
