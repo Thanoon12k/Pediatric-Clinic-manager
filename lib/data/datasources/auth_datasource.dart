@@ -37,8 +37,12 @@ class AuthDataSourceImpl implements AuthDataSource {
 
   @override
   Future<UserModel> signIn({required String email, required String password}) async {
+    final credential = email.trim();
+    final emailForAuth = credential.contains('@')
+        ? credential
+        : '${credential.toLowerCase()}@staff.yadati.invalid';
     final response = await _client.auth.signInWithPassword(
-      email: email, password: password,
+      email: emailForAuth, password: password,
     );
     if (response.user == null) throw Exception('فشل تسجيل الدخول');
     final data = await _client
@@ -46,7 +50,7 @@ class AuthDataSourceImpl implements AuthDataSource {
         .select()
         .eq('id', response.user!.id)
         .single();
-    return UserModel.fromJson({...data, 'email': email});
+    return UserModel.fromJson({...data, 'email': response.user!.email ?? emailForAuth});
   }
 
   @override
