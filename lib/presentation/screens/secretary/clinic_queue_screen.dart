@@ -63,7 +63,7 @@ class _ClinicQueueScreenState extends ConsumerState<ClinicQueueScreen> {
 
       final rows = await _client
           .from('clinic_queue')
-          .select('id,doctor_id,visit_date,patient_name,token_number,sort_order,status')
+          .select('id,doctor_id,visit_date,patient_name,token_number,sort_order,status,medical_patient_id')
           .eq('doctor_id', doctorId)
           .eq('visit_date', _day)
           .order('sort_order')
@@ -236,6 +236,8 @@ class _ClinicQueueScreenState extends ConsumerState<ClinicQueueScreen> {
     final status = item['status'] as String;
     final statusColor = _statusColor(status);
     final isWaiting = status == 'waiting';
+    final canCreateRecord = _accountRole == 'doctor' &&
+        item['medical_patient_id'] == null && status != 'cancelled';
 
     return Card(
       elevation: 0,
@@ -263,6 +265,21 @@ class _ClinicQueueScreenState extends ConsumerState<ClinicQueueScreen> {
               const SizedBox(height: 4),
               Text(_statusLabel(status),
                 style: TextStyle(color: statusColor, fontSize: 12)),
+              if (_accountRole == 'doctor' && item['medical_patient_id'] != null)
+                const Text('ملف طبي موجود',
+                  style: TextStyle(fontSize: 11, color: AppColors.success)),
+              if (canCreateRecord)
+                TextButton.icon(
+                  onPressed: _busy ? null : () async {
+                    await context.push('/doctor/patients/add', extra: {
+                      'queueId': item['id'],
+                      'patientName': item['patient_name'],
+                    });
+                    if (mounted) await _load();
+                  },
+                  icon: const Icon(Icons.medical_information_outlined, size: 18),
+                  label: const Text('إضافة كملف طبي'),
+                ),
             ],
           )),
           if (isWaiting) ...[
