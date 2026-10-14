@@ -1,5 +1,5 @@
 // ignore_for_file: constant_identifier_names
-enum UserRole { admin, doctor, patient }
+enum UserRole { admin, doctor, patient, secretary }
 
 class UserModel {
   final String id;
@@ -46,6 +46,7 @@ class UserModel {
     switch (r) {
       case 'admin': return UserRole.admin;
       case 'doctor': return UserRole.doctor;
+      case 'secretary': return UserRole.secretary;
       default: return UserRole.patient;
     }
   }
