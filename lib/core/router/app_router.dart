@@ -13,6 +13,7 @@ import '../../presentation/screens/auth/forgot_password_screen.dart';
 import '../../presentation/screens/auth/update_password_screen.dart';
 import '../../presentation/screens/doctor/doctor_dashboard_screen.dart';
 import '../../presentation/screens/secretary/clinic_queue_screen.dart';
+import '../../presentation/screens/staff/staff_accounts_screen.dart';
 import '../../presentation/screens/doctor/doctor_profile_screen.dart';
 import '../../presentation/screens/patient/patient_dashboard_screen.dart';
 import '../../presentation/screens/patient/patient_list_screen.dart';
@@ -111,6 +112,11 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: AppConstants.routeClinicQueue,
       builder: (_, __) => const ClinicQueueScreen(),
+    ),
+
+    GoRoute(
+      path: AppConstants.routeStaffAccounts,
+      builder: (_, __) => const StaffAccountsScreen(),
     ),
 
     // ── Admin ─────────────────────────────────────────────────────────────────
