@@ -15,6 +15,16 @@ Flutter + Supabase pediatric clinic system for doctors, patients and clinic admi
 
 Existing functionality and data models remain in place; Supabase records are **not modified** by the redesign.
 
+## Secretary reception and doctor-specific patient queue (v1.2)
+
+- Dedicated `secretary` login redirects straight to a focused, responsive Arabic reception queue.
+- Each secretary is assigned to **exactly one** doctor by a trusted database administrator.
+- Staff add patient names to today's queue, move waiting patients up/down, mark visits in-progress/completed or cancelled, and see counts. Doctors access the same queue from their dashboard.
+- RLS scopes reads to the linked doctor; mutations use validated server-side RPCs. Secretaries cannot access medical files, prescriptions, examinations, or other doctors.
+- This is a walk-in reception queue; it does **not** create full patient medical records or appointment bookings.
+
+Back up and test migrations 002 and 003 before applying to the clinic database. Only the administrator can authorize secretary accounts. See **[setup and authorization tests](docs/SECRETARY_QUEUE_SETUP.md)**.
+
 ## Restore a doctor's forgotten password (Android)
 
 1. Open Supabase Dashboard → Authentication → URL Configuration for the matching project.
