@@ -80,8 +80,64 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       controller: _emailCtrl,
                       keyboardType: TextInputType.emailAddress,
                       textDirection: TextDirection.ltr,
-                      decoration: const InputDecoration(labelText: 'البريد الإلكتروني', prefixIcon: Icon(Icons.email_outlined)),
-                      validator: (v) => (v == null || !v.contains('@')) ? 'بريد إلكتروني غير صحيح' : null,
+                      decoration: const InputDecoration(labelText: 'البريد الإلكتروني أو اسم المستخدم', prefixIcon: Icon(Icons.email_outlined)),
+                      validator: (v) {
+                        final value = (v ?? '').trim().toLowerCase();
+                        final isEmail = value.contains('@') && value.indexOf('@') > 0;
+                        final isUsername = RegExp(r'^[a-z][a-z0-9_]{3,23}
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _passCtrl,
+                      obscureText: _obscure,
+                      textDirection: TextDirection.ltr,
+                      decoration: InputDecoration(
+                        labelText: 'كلمة المرور',
+                        prefixIcon: const Icon(Icons.lock_outlined),
+                        suffixIcon: IconButton(
+                          icon: Icon(_obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+                          onPressed: () => setState(() => _obscure = !_obscure),
+                        ),
+                      ),
+                      validator: (v) => (v == null || v.length < 6) ? 'كلمة المرور يجب أن تكون 6 أحرف على الأقل' : null,
+                      onFieldSubmitted: (_) => _submit(),
+                    ),
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: AlignmentDirectional.centerEnd,
+                      child: TextButton(
+                        onPressed: () => context.go(AppConstants.routeForgotPassword),
+                        child: const Text('نسيت كلمة المرور؟'),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    ElevatedButton(
+                      onPressed: state is AuthLoading ? null : _submit,
+                      child: state is AuthLoading
+                          ? const SizedBox(height: 22, width: 22, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          : const Text('دخول'),
+                    ),
+                  ]),
+                ),
+              ).animate(delay: 300.ms).fadeIn().slideY(begin: 0.3),
+              const SizedBox(height: 24),
+              Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                Text('ليس لديك حساب؟', style: AppTextStyles.bodyMedium),
+                TextButton(
+                  onPressed: () => context.go(AppConstants.routeRegister),
+                  child: const Text('إنشاء حساب'),
+                ),
+              ]),
+            ]),
+          ),
+        ),
+      ]),
+    );
+  }
+}
+).hasMatch(value);
+                        return isEmail || isUsername ? null : 'أدخل البريد الإلكتروني أو اسم مستخدم صحيح';
+                      },
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
