@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/constants/app_constants.dart';
+import '../../core/config/auth_recovery_state.dart';
 
 import '../../presentation/screens/splash/splash_screen.dart';
 import '../../presentation/screens/welcome/welcome_screen.dart';
@@ -34,6 +35,7 @@ import '../../presentation/screens/pdf/pdf_report_screen.dart';
 void setupAuthRedirectListener(GoRouter router) {
   Supabase.instance.client.auth.onAuthStateChange.listen((data) {
     if (data.event == AuthChangeEvent.passwordRecovery) {
+      AuthRecoveryState.active = true;
       router.go(AppConstants.routeUpdatePassword);
     }
   }, onError: (Object error, StackTrace trace) {
