@@ -11,6 +11,22 @@ alter table public.profiles
   add constraint profiles_role_check
   check (role in ('admin', 'doctor', 'patient', 'secretary'));
 
+-- Migration 002 blocks profile.role changes from end-user sessions. Allow
+-- explicit trusted SQL Editor administration (postgres) and backend service_role
+-- to provision staff, but NEVER allow 'authenticated' to promote itself.
+create or replace function public.prevent_profile_role_escalation()
+returns trigger
+language plpgsql set search_path = ''
+as $
+begin
+  if new.role is distinct from old.role
+     and current_user not in ('postgres', 'service_role') then
+    raise exception 'Profile role changes require a trusted server';
+  end if;
+  return new;
+end;
+$;
+
 -- One row per secretary = no cross-doctor or multi-doctor access.
 create table if not exists public.secretary_assignments (
   user_id uuid primary key references auth.users(id) on delete cascade,
