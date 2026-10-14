@@ -17,7 +17,7 @@ alter table public.profiles
 create or replace function public.prevent_profile_role_escalation()
 returns trigger
 language plpgsql set search_path = ''
-as $
+as $body$
 begin
   if new.role is distinct from old.role
      and session_user <> 'postgres'
@@ -26,7 +26,7 @@ begin
   end if;
   return new;
 end;
-$;
+$body$;
 
 -- One row per secretary = no cross-doctor or multi-doctor access.
 create table if not exists public.secretary_assignments (
