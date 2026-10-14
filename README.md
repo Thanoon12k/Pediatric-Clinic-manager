@@ -15,6 +15,17 @@ Flutter + Supabase pediatric clinic system for doctors, patients and clinic admi
 
 Existing functionality and data models remain in place; Supabase records are **not modified** by the redesign.
 
+## Restore a doctor's forgotten password (Android)
+
+1. Open Supabase Dashboard → Authentication → URL Configuration for the matching project.
+2. Add the **exact** allowed redirect URL `com.thanoon.yadati://login-callback/` under Redirect URLs. Do not rely on the default `http://localhost:3000`.
+3. Build and install version `1.1.1+3` or later on the **same Android phone** that will request password recovery.
+4. In Yadati, choose "نسيت كلمة المرور؟" and request an email using the original doctor's login email.
+5. On the **same phone**, open the **newest** password reset email and tap its link. The link opens Yadati's password update form, not localhost. Select a strong new password.
+6. Log in with the old email and new password. Existing `auth.users.id` and `doctors.user_id` remain unchanged.
+
+Important: Recovery URLs carry one-time credentials; never share them in chat or screenshots. Links sent before the redirect fix must be discarded. The callback URL must be allowlisted in Supabase Dashboard or Supabase will fall back to Site URL. PKCE recovery should be requested and completed on the same Android installation.
+
 ## Required database security update
 
 After taking a backup and validating on a staging Supabase project, apply:
