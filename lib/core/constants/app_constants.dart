@@ -4,7 +4,7 @@ class AppConstants {
   // ─── App ────────────────────────────────────────────────────────────────────
   static const String appName        = 'عيادتي';
   static const String appNameEn      = 'Yadati';
-  static const String appVersion     = '1.2.0';
+  static const String appVersion     = '1.3.0';
 
   // ─── Supabase Tables ────────────────────────────────────────────────────────
   static const String tableProfiles     = 'profiles';
@@ -41,6 +41,7 @@ class AppConstants {
   static const String routeMessages         = '/messages';
   static const String routeSettings         = '/settings';
   static const String routeClinicQueue      = '/clinic/queue';
+  static const String routeStaffAccounts    = '/staff/accounts';
   static const String routeMedications      = '/medications';
   static const String routeSafetyTips       = '/safety-tips';
   static const String routeFailedOps        = '/failed-ops';
