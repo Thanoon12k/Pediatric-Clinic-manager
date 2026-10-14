@@ -23,8 +23,9 @@ class PatientLoaded extends PatientState {
 }
 class PatientOperationSuccess extends PatientState {
   final String message;
-  PatientOperationSuccess(this.message);
-  @override List<Object?> get props => [message];
+  final String? recordId;
+  PatientOperationSuccess(this.message, {this.recordId});
+  @override List<Object?> get props => [message, recordId];
 }
 class PatientError extends PatientState {
   final String message;
@@ -61,8 +62,8 @@ class PatientNotifier extends StateNotifier<PatientState> {
   Future<void> createPatient(PatientModel patient) async {
     state = PatientLoading();
     try {
-      await _repo.createPatient(patient);
-      state = PatientOperationSuccess('تم إضافة المريض بنجاح');
+      final created = await _repo.createPatient(patient);
+      state = PatientOperationSuccess('تم إضافة المريض بنجاح', recordId: created.id);
     } catch (err) {
       state = PatientError(err.toString());
     }
