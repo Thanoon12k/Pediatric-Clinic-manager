@@ -91,7 +91,14 @@ final GoRouter appRouter = GoRouter(
     ),
     GoRoute(
       path: '/doctor/patients/add',
-      builder: (_, __) => const PatientFormScreen(),
+      builder: (_, state) {
+        final extra = state.extra;
+        final source = extra is Map<String, dynamic> ? extra : null;
+        return PatientFormScreen(
+          queueId: source?['queueId'] as String?,
+          initialPatientName: source?['patientName'] as String?,
+        );
+      },
     ),
     GoRoute(
       path: '/doctor/patients/:id',
