@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../data/models/user_model.dart';
+import '../../core/constants/app_constants.dart';
 
 abstract class AuthDataSource {
   Future<UserModel?> getCurrentUser();
@@ -73,7 +74,8 @@ class AuthDataSourceImpl implements AuthDataSource {
 
   @override
   Future<void> sendPasswordResetEmail(String email) async =>
-      await _client.auth.resetPasswordForEmail(email);
+      await _client.auth.resetPasswordForEmail(
+        email, redirectTo: AppConstants.passwordRecoveryRedirect);
 
   @override
   Future<void> updatePassword(String newPassword) async {
