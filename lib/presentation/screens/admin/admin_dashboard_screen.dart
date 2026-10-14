@@ -3,6 +3,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../providers/doctor/doctor_provider.dart';
 import '../../providers/auth/auth_provider.dart';
@@ -48,6 +49,14 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
             icon: const Icon(Icons.logout_rounded, color: Colors.white),
           ),
         ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () async {
+          await context.push(AppConstants.routeStaffAccounts);
+          if (context.mounted) ref.read(doctorProvider.notifier).loadDoctors();
+        },
+        icon: const Icon(Icons.person_add_alt_1_rounded),
+        label: const Text('إضافة طبيب'),
       ),
       body: Builder(
         builder: (context) {
