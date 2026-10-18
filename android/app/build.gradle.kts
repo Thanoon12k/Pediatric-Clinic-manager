@@ -25,12 +25,10 @@ android {
         targetCompatibility = JavaVersion.VERSION_11
     }
 
-    kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_11.toString()
-    }
 
     signingConfigs {
-        create("release") {
+        // Without key.properties (e.g. on CI) release builds fall back to the debug key.
+        if (keyPropertiesFile.exists()) create("release") {
             keyAlias = keyProperties["keyAlias"] as String
             keyPassword = keyProperties["keyPassword"] as String
             storeFile = file(keyProperties["storeFile"] as String)
@@ -48,7 +46,7 @@ android {
 
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("release")
+            signingConfig = signingConfigs.getByName(if (keyPropertiesFile.exists()) "release" else "debug")
             isMinifyEnabled = false
             isShrinkResources = false
         }
@@ -57,4 +55,10 @@ android {
 
 flutter {
     source = "../.."
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
+    }
 }
